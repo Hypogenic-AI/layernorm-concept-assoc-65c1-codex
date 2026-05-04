@@ -1,0 +1,538 @@
+On the Expressivity Role of LayerNorm in Transformers’ Attention
+Shaked Brody†, Uri Alon♠, Eran Yahav†
+† Technion, Israel
+♠ Language Technologies Institute, Carnegie Mellon University, USA
+{shakedbr,yahave}@cs.technion.ac.il
+ualon@cs.cmu.edu
+Abstract
+Layer Normalization (LayerNorm) is an inher-
+ent component in all Transformer-based mod-
+els. In this paper, we show that LayerNorm
+is crucial to the expressivity of the multi-head
+attention layer that follows it. This is in con-
+trast to the common belief that LayerNorm’s
+only role is to normalize the activations during
+the forward pass, and their gradients during the
+backward pass.
+We consider a geometric interpretation of
+LayerNorm and show that it consists of
+two components: (a) projection of the input
+vectors to a d− 1 space that is orthogonal to
+the [1, 1,..., 1] vector, and (b) scaling of all
+vectors to the same norm of
+√
+d. We show that
+each of these components is important for the
+attention layer that follows it in Transformers :
+(a) projection allows the attention mechanism
+to create an attention query that attends to all
+keys equally, ofﬂoading the need to learn this
+operation by the attention; and (b) scaling
+allows each key to potentially receive the
+highest attention, and prevents keys from
+being “un-select-able”. We show empirically
+that Transformers do indeed beneﬁt from these
+properties of LayeNorm in general language
+modeling and even in computing simple func-
+tions such as “majority”. Our code is available
+at https://github.com/tech-srl/
+layer_norm_expressivity_role.
+1 Introduction
+LayerNorm (Ba et al., 2016) is the most commonly
+used normalization technique in modern neural net-
+works such as Transformers (Vaswani et al., 2017).
+Originally, Ba et al. (2016) motivated Layer-
+Norm as an efﬁcient way of normalizing the ac-
+tivations during the forward pass or providing dis-
+tribution stability as in batch normalization (Ioffe
+and Szegedy, 2015). Later, Xu et al. (2019) and
+Xiong et al. (2020) argued that more importantly
+than normalizing forward activations, LayerNorm
+stabilizes the gradients during the backward pass.
+However, in this work, we show that LayerNorm,
+which was originally proposed for RNNs, has an
+additional crucial role in the theoretical and prac-
+tical expressivity of the multi-head attention layer
+that follows it in Transformers. 1 That is, Layer-
+Norm makes it easier for the Transformer to learn
+certain functions during training.
+LayerNorm can be seen as two independent com-
+ponents: projection and scaling, that were merged
+into a single operator. First, LayerNorm projects
+its inputs onto a particular d− 1 space that is or-
+thogonal to the “ones”⃗1 = [1, 1,..., 1] vector. This
+allows the attention layer that follows the Layer-
+Norm to create queries that are close to⃗1 , and thus
+attend to all keys equally, when needed, regardless
+of the identity of the keys. In Section 3 we show
+that this projection helps, for example, computing
+the “majority” among token types in a sequence.
+Figure 1a shows how without LayerNorm, the
+keys and queries in a Transformer’s attention have
+no apparent geometric structure. In contrast, Fig-
+ure 1b shows that LayerNorm has projected all
+keys to the hyperplane that is orthogonal to the
+⃗1 vector. Further, the attention mechanism has
+learned queries that are close to ⃗1 , making them
+attend equally to any possible key, when trained to
+compute “majority”. We analyze and prove this in
+Section 4.1.
+The second component of LayerNorm is scaling:
+We show that LayerNorm scales the projected input
+to have an ℓ2 norm of exactly
+√
+d. In Section 3,
+we show that scaling the input vectors prevents
+the problem of “unselectable” keys (Demeter et al.,
+2020; Grivas et al., 2022), where some key vectors
+are contained in the convex hull formed by the other
+keys, and thus can never get the highest attention
+score. Figures 1c and 1d show the average fraction
+1Xiong et al. (2020) discuss the differences between plac-
+ing LayerNorm before and 
+
+w/o LayerNorm
+-1-0.500.51 -1 -0.5 0 0.5 1
+-1
+-0.5
+0
+0.5
+1
+X Y
+Z
+keys
+queries
+(a) Without LayerNorm, the model has learned key and
+query vectors without any apparent geometric structure.
+w/ LayerNorm
+-1-0.500.51 -1 -0.5 0 0.5 1
+-1
+-0.5
+0
+0.5
+1
+X Y
+Z
+keys
+queries
+(b) LayerNorm projects the key vectors onto the same
+hyperplane so that the model can learn to align the queries
+to be orthogonal to the keys.
+3 4 5 6 7 8 9 10 11 12 13 14 15
+10
+20
+30
+40
+50
+60
+d
+n
+(c) Without LayerNorm, there are “unselectable” key vec-
+tors that cannot be selected by getting the maximal atten-
+tion score (marked in darker colors).
+3 4 5 6 7 8 9 10 11 12 13 14 15
+10
+20
+30
+40
+50
+60
+d
+n
+0
+0.2
+0.4
+0.6
+0.8
+1
+(d) LayerNorm eliminates the problem of “unselectable”
+key vectors: Applying LayerNorm allows any key to get
+the highest attention score.
+Figure 1: Figures 1a and 1b show the effect ofprojection in LayerNorm, which makes all keys lie on the hyperplane
+that is orthogonal to the ⃗1 vector. Figures 1c and 1d show the effect of scaling, wheren is the number of vectors,
+d is the dimension, and the color represents the average fraction of “unselectable” key vectors.
+(out of 100 runs) of “unselectable” vectors which
+were randomly drawn from the normal distribution.
+As shown in Figure 1c, without LayerNorm, the
+probability of getting “unselectable” keys can be
+very high in certain settings. Nonetheless, as shown
+in Figure 1d, with LayerNorm, every key vector
+is always selectable. We analyze and prove this in
+Section 4.2.
+These results reveal new aspects of the com-
+monly used LayerNorm and show its importance
+to the attention mechanism in Transformers.
+2 Decomposing LayerNorm
+Given an inputx∈ Rd, LayerNorm is deﬁned as
+the following quotient:2
+y = x−µ
+σ (1)
+2Following Xu et al. (2019) and for simplicity, we drop
+the learned bias and gain terms.
+whereµ is the coordinate-wise average ofx andσ
+is the coordinate-wise standard deviation:
+µ = 1
+d
+d∑
+i=1
+xi, σ =
+√ 1
+d
+d∑
+i=1
+(xi−µ)2 (2)
+µ = [µ,µ,...,µ ]∈ Rd (3)
+We start with the numerator x−µ and show
+that it corresponds to the projection ofx onto the
+hyperplaneH deﬁned by the normal vector ⃗1 =
+[1, 1,..., 1]∈ Rd:
+(x−µ)·⃗1 =x·⃗1 −µ·⃗1
+d∑
+i=1
+xi−
+(
+1
+d
+d∑
+i=1
+xi
+)
+·d = 0
+(4)
+That is,x−µ is always orthogonal to the⃗1 vec-
+tor. Next, we show that the denominator scales the
+
+projected vector to have a norm of exactly
+√
+d:
+||x−µ|| =
+√
+d∑
+i=1
+(xi−µ)2
+=
+√
+d
+√ 1
+d
+d∑
+i=1
+(xi−µ)2 =
+√
+d·σ
+(5)
+Then,σ in the denominator of LayerNorm scales
+the projected vector to have a norm of exactly
+√
+d.
+LayerNorm can thus be seen as two independent
+components: (a) projection of the input vectors
+onto the hyperplane orthogonal to⃗1 , and (b) scal-
+ing of the projected vectors to have a norm of
+√
+d.
+3 Expressivity Role in Attention
+Each of the components of LayerNorm supports
+the Transformer’s attention in a different way. Pro-
+jection helps creating a query that attends to all
+keys equally, when needed, while scaling helps the
+model to avoid the problem of “unselectable” keys.
+Recall that in Transformers, given vectorsq and
+k, the attention scoring function is deﬁned as:
+s (q,k) = (qQ) (kK)⊤
+√
+d
+=
+(qQK⊤
+√
+d
+)
+k⊤ (6)
+From this point, we refer to
+(
+qQK ⊤
+√
+d
+)
+as “query”,
+and tok as “key”.
+3.1 Projection
+Projecting all attention keys to the same hyperplane
+can help attention attending to all keys equally.
+Since all projected keys are orthogonal to the hy-
+perplane’s normal⃗1 , this fact can be exploited in
+the training process by learning weights such that
+the queries will be parallel to⃗1 . That is, the atten-
+tion can learn weights such that
+(
+qQK ⊤
+√
+d
+)
+≈c·⃗1 ,
+which will result in
+(
+qQK ⊤
+√
+d
+)
+·k≈ 0 and thus
+s (q,k) = 0 for any keyk.
+Giving an equal score to all the keys can help,
+for example, in computing “majority”, where the
+model needs to ﬁnd the most frequent token in the
+input. In Section 4.1, we show that in the “majority”
+task, a Transformer learns to align the queries to
+be orthogonal to the keys, allowing a much faster
+convergence.
+3.2 Scaling
+Scaling the attention keys to the same size allows a
+Transformer to avoid the problem of “unselectable”
+keys, where there are keys to which the attention
+cannot focus and give the highest score.
+LetS = {h1,...,hn−1,hn} be a set of key
+vectors, such that hn lies within the convex hull
+formed by the other vectors inS. Due to the lin-
+earity of the attention scoring functions, the atten-
+tion mechanism cannot selecthn by giving it the
+highest attention score. We formulate this in the
+following theorem:
+Theorem 1. Given a set of vectors S =
+{h1,...,hn−1,hn} such thathn is interior to the
+convex hull ofS, then for all v∈ Rd (s.t.v̸=⃗0):
+max
+i∈[n−1]
+v⊤hi>v⊤hn
+This means that key vectors that are inside the
+convex hull cannot be selected by getting the high-
+est attention score. Applying LayerNorm to the
+keys ensures that all keys are scaled to the same
+size, and thus none of them lies inside the convex
+hull ofS. This allows the attention mechanism to
+potentially focus and select any desired key. The
+proof of Theorem 1 is provided in Appendix A.
+In Section 4.2 we show that this happens in prac-
+tice when we train a Transformer on language mod-
+eling: There are key vectors that lie within the
+convex hull and therefore cannot be selected by
+receiving the maximal attention.
+4 Experimental Results
+In this section, we empirically show the effects of
+the LayerNorm components – projection and scal-
+ing – on the attention mechanism in Transformers.
+We ﬁrst show how a Transformer learns to use the
+projection of LayerNorm to compute “majority”;
+then, we show that scaling allows the model to
+avoid the problem of “unselectable” keys, allowing
+the attention mechanism to focus on any key.
+4.1 Computing Majority
+We demonstrate the ability to compute “majority”
+using the projection property. In this task, the
+goal is to predict the majority token type in a se-
+quence. Given a sequence of tokenst1,t 2,...,t n∈
+{C1,C 2,...,C k}, the goal is to predict the token
+typeCi that occurs the most among t1,t 2,...,t n.
+For a,a,b,b,b,c,c , for example, the model is
+trained to predict the output b,b,b,b,b,b,b . Solv-
+ing this task can be performed simply using exact
+averaging of the keys.
+We trained a single-layer Transformer encoder
+with dimensiond = 8 and a single attention head.
+
+0 1,000 2,000 3,000 4,000 5,000
+0
+1
+2
+0.2
+Step
+Loss
+w/oprojection
+w/ projection
+(a) Training loss: With projection, the model converges
+faster compared to the model without projection, which
+required 3x more steps.
+0 4,000 8,000 12,000 16,000
+20◦
+40◦
+60◦
+80◦
+100◦
+Step
+Angle
+w/oprojection
+w/ projection
+(b) The mean angle of the queries to the ⃗1 vector. With
+projection, since all keys are orthogonal to ⃗1 , the model
+has learned to align the queries to be parallel to⃗1 and thus
+give equal attention to all keys.
+Figure 2: The training loss and mean angle of the
+queries to⃗1 in the “majority” task across 10 runs with
+and without projection.
+We experimented with standard LayerNorm com-
+pared to a LayerNorm without projection (having
+a numerator of simplyx in Equation (1), similarly
+to the LayerNorm variant of Zhang and Sennrich
+(2019)). We trained each model 10 times using
+different random seeds.
+Results Figure 2a shows that with projection, the
+model converges faster compared to without pro-
+jection. We hypothesize that since all key vec-
+tors are orthogonal to the⃗1 vector, the model can
+exploit this geometric structure, and learning the
+task is made easier. Figure 2b shows that indeed,
+the model with projection has learned to align the
+queries to the ⃗1 vector, decreasing the angle be-
+tween the queries and⃗1 . On the contrary, a model
+without projection has to learn to solve this task
+“from scratch”. This model also converged eventu-
+ally, but it required 3x more training steps. Figure 3
+shows a similar trend in the models’ test accuracies.
+4.2 Unselectable Keys
+We examined the fraction of “unselectable” keys
+in a Transformer model with and without the scal-
+0 1,000 2,000 3,000 4,000 5,000
+0.4
+0.6
+0.8
+Step
+Accuracy
+w/ projection
+w/oprojection
+Figure 3: The test accuracy in the “majority” task
+across 10 runs with and without projection. With pro-
+jection the model reaches high test accuracy faster com-
+pared to the model without projection.
+Model L1 L2 L3 L4
+w/o scaling 51.0 32.2 34.7 36.8
+w/ scaling 0 0 0 0
+Table 1: The fraction of “unselectable” key vectors
+right before the attention mechanism of each layer of
+a language model without scaling. LayerNorm solves
+the “unselectable” keys problem using thescaling prop-
+erty. Without scaling, there are key vectors that cannot
+be selected by the attention mechanism.
+ing component of LayerNorm using the method
+presented in Grivas et al. (2022). We trained a 4-
+layer language model (based on GPT2 architecture
+(Radford et al., 2019)) withd = 8 on Wikipedia 3
+for 50K steps, and analyzed the inputs to the atten-
+tion layer in each layer using sequences from the
+validation set of SQuAD (Rajpurkar et al., 2016).
+Results Table 1 shows the following results:
+Without scaling , there are at least 32% “unse-
+lectable” keys that cannot receive maximal atten-
+tion score in each layer . In contrast, scaling re-
+moves this problem and allows the model to poten-
+tially focus on any key. In Figures 4a and 4b, we
+show that this difference in “unselectable” keys is
+also reﬂected in higher training and test losses for
+the model that does not use scaling.
+5 Conclusion
+In this paper, we show that the commonly used
+LayerNorm component is crucial not only for the
+optimization process but also for the expressivity
+of attention in Transformers. We decompose Lay-
+erNorm into two geometric operations: projecting
+3https://huggingface.co/datasets/
+wikipedia, 20220301.en split.
+
+10,000 20,000 30,000 40,000 50,000
+7.2
+7.4
+7.6
+7.8
+8
+Step
+Loss
+w/oscaling
+w/ scaling
+(a) Training loss: With scaling, the model converge faster
+compared to the model without scaling.
+10,000 20,000 30,000 40,000 50,000
+7.2
+7.4
+7.6
+7.8
+8
+Step
+Loss
+w/oscaling
+w/ scaling
+(b) Test loss: With scaling, the model achieves lower test
+loss faster compared to the model without scaling.
+Figure 4: The training and test loss in the language
+modeling task.
+the input vectors onto a subspace that is orthogonal
+to the⃗1 vector, and scaling the projected vectors
+to have the same norm
+√
+d.
+We show that projection helps to compute even
+simple tasks such as “majority” by performing an
+exact average of the keys and that scaling helps to
+avoid the problem of “unselectable” keys.
+These ﬁndings are important for the commu-
+nity’s understanding of attention and expressivity
+in Transformers. Further, these results raise a va-
+riety of follow-up questions, such as: why should
+the keys be orthogonal to the ⃗1 vector, instead
+of any, learnable, different vector for every layer?
+And what would happen if we force each layer’s
+keys to be orthogonal to multiple normal vectors?
+To this end, we make our code publicly avail-
+able at https://github.com/tech-srl/
+layer_norm_expressivity_role.
+6 Limitations
+In this work, we found that the implications of the
+geometric properties of LayerNorm affect mainly
+small models and are less evident for larger models.
+We hypothesize that with a large hidden dimen-
+sion, a Transformer model can ﬁnd other solutions
+for computing “majority“ using gradient descent
+and is, therefore, less dependent on the projection
+component. Further, we believe that the scaling
+component is less useful for high dimensional mod-
+els, since with higher dimensions, it is less likely
+to encounter a set of vectors where some of them
+lie within the convex hull of the others. Therefore,
+we encourage the community to use LayerNorm
+before attention layers, especially for small models
+that operate on long sequences.
+Moreover, the projection component is clearly
+a linear operator that can be expressed by a lin-
+ear layer before the LayerNorm, as we show in
+Appendix C. Nevertheless, the importance of the
+projection holds as we discuss in Section 3, and the
+beneﬁt of using this operator explicitly in Layer-
+Norm is shown in Section 4.1.
+Acknowledgements
+We thank Gail Weiss for the helpful discussions.
+References
+Jimmy Lei Ba, Jamie Ryan Kiros, and Geoffrey E Hin-
+ton. 2016. Layer normalization. ArXiv preprint ,
+abs/1607.06450.
+David Demeter, Gregory Kimmel, and Doug Downey.
+2020. Stolen probability: A structural weakness
+of neural language models. In Proceedings of the
+58th Annual Meeting of the Association for Compu-
+tational Linguistics , pages 2191–2197, Online. As-
+sociation for Computational Linguistics.
+Jacob Devlin, Ming-Wei Chang, Kenton Lee, and
+Kristina Toutanova. 2018. Bert: Pre-training of deep
+bidirectional transformers for language understand-
+ing. arXiv preprint arXiv:1810.04805.
+Wikimedia Foundation. Wikimedia downloads.
+Andreas Grivas, Nikolay Bogoychev, and Adam Lopez.
+2022. Low-rank softmax can have unargmaxable
+classes in theory but rarely in practice. In Proceed-
+ings of the 60th Annual Meeting of the Association
+for Computational Linguistics (V olume 1: Long Pa-
+pers), pages 6738–6758, Dublin, Ireland. Associa-
+tion for Computational Linguistics.
+Sergey Ioffe and Christian Szegedy. 2015. Batch nor-
+malization: Accelerating deep network training by
+reducing internal covariate shift. In Proceedings
+of the 32nd International Conference on Machine
+Learning, ICML 2015, Lille, France, 6-11 July 2015,
+volume 37 of JMLR Workshop and Conference Pro-
+ceedings, pages 448–456. JMLR.org.

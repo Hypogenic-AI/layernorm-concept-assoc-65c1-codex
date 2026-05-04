@@ -1,0 +1,6 @@
+\section{Conclusion}
+\label{sec:conclusion}
+
+We examined whether LayerNorm contributes to creative and associative collapse by comparing \gpttwo with a matched LN-free checkpoint across creative generation and association geometry. The answer is partial support for the hypothesis. Removing LayerNorm strongly broadens hidden-state geometry, as shown by large reductions in anisotropy and large increases in effective rank, and it also raises semantic spread across repeated generations. However, it does not yield a reliable gain in lexical distinctness, prompt adherence, or clue-group separability.
+
+The main takeaway is simple: in this GPT-2-family setting, LayerNorm looks like a geometry-shaping factor rather than a single direct cause of creative-output collapse. Future work should test stronger model families with matched normalized and de-normalized variants, add human or strong-LLM quality judgments to separate novelty from incoherence, and study architecture-by-decoder interactions directly under greedy, temperature, and nucleus sampling.

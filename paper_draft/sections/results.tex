@@ -1,0 +1,26 @@
+\section{Results}
+\label{sec:results}
+
+\para{Creative generation.} \Tabref{tab:generation-results} shows the full prompt-level comparison on \noveltybench. The only result that survives FDR correction is semantic spread: embedding dispersion rises from 0.803 to 0.831, with a moderate paired effect size ($d=0.73$). In contrast, the LN-free model slightly lowers \texttt{distinct\_1} and \texttt{distinct\_2}, slightly raises bigram overlap, and leaves repetition and sentence adherence effectively unchanged. The directional checks match this mixed picture. \lnfreegpt shows higher semantic dispersion on 15 of 20 prompts, but it beats \gpttwo on only 8 of 20 prompts for \texttt{distinct\_1} and 6 of 20 prompts for \texttt{distinct\_2}. \Figref{fig:generation-metrics} visualizes the same pattern: broader semantic spread without cleaner lexical novelty.
+
+\input{tables/generation_results}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.95\linewidth]{figures/generation_metrics.png}
+    \caption{Creative-generation metrics across 20 \noveltybench prompts. The LN-free model increases semantic dispersion, but the lexical metrics do not improve in parallel. This separation between semantic spread and surface distinctness is the central result on the generation side.}
+    \label{fig:generation-metrics}
+\end{figure}
+
+\para{Association geometry.} \Tabref{tab:ocw-results} shows a much stronger effect on the \ocw benchmark. Removing LayerNorm does not significantly improve association AUC or similarity gap, but it changes embedding geometry substantially. Mean anisotropy falls from 0.992 to 0.964, and effective rank rises from 1.35 to 2.56. Both survive FDR correction by a large margin. The directional checks are even stronger: \lnfreegpt has lower anisotropy on all 62 walls and higher effective rank on all 62 walls. However, AUC improves on only 33 of 62 walls, which means the broader geometry does not translate into a reliable gain in clue-group separability.
+
+\input{tables/ocw_results}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.95\linewidth]{figures/ocw_metrics.png}
+    \caption{Association-geometry metrics across 62 \ocw validation walls. LN removal consistently lowers anisotropy and raises effective rank, but the separability metrics remain close to baseline. The figure highlights a strong internal change without a matching task-level gain.}
+    \label{fig:ocw-metrics}
+\end{figure}
+
+\para{Statistical interpretation.} Taken together, the results support H2 strongly, support H1 only through semantic dispersion, and do not support H3 strongly enough to claim better association structure at the task level. The key empirical fact is therefore not a broad creativity gain, but a mismatch: LayerNorm removal expands representational geometry much more than it improves surface behavior.

@@ -1,0 +1,110 @@
+[
+  {
+    "metric": "distinct_1",
+    "model": "gpt2",
+    "mean": 0.5923328008889506,
+    "std": 0.11304672618177883,
+    "ci_low": 0.512396694214876,
+    "ci_high": 0.6722689075630253,
+    "n": 2
+  },
+  {
+    "metric": "distinct_1",
+    "model": "gpt2_lnfree",
+    "mean": 0.641089904247799,
+    "std": 0.024083708889458894,
+    "ci_low": 0.6240601503759399,
+    "ci_high": 0.6581196581196581,
+    "n": 2
+  },
+  {
+    "metric": "distinct_2",
+    "model": "gpt2",
+    "mean": 0.886267327443798,
+    "std": 0.11249310639432612,
+    "ci_low": 0.8067226890756303,
+    "ci_high": 0.9658119658119658,
+    "n": 2
+  },
+  {
+    "metric": "distinct_2",
+    "model": "gpt2_lnfree",
+    "mean": 0.9564221705940923,
+    "std": 0.02473582965053507,
+    "ci_low": 0.9389312977099237,
+    "ci_high": 0.9739130434782609,
+    "n": 2
+  },
+  {
+    "metric": "embedding_dispersion",
+    "model": "gpt2",
+    "mean": 0.8860961496829987,
+    "std": 0.04548483676610833,
+    "ci_low": 0.8539335131645203,
+    "ci_high": 0.918258786201477,
+    "n": 2
+  },
+  {
+    "metric": "embedding_dispersion",
+    "model": "gpt2_lnfree",
+    "mean": 0.8477427959442139,
+    "std": 0.22829464269283714,
+    "ci_low": 0.6863141059875488,
+    "ci_high": 1.009171485900879,
+    "n": 2
+  },
+  {
+    "metric": "pairwise_bigram_jaccard",
+    "model": "gpt2",
+    "mean": 0.008849557522123894,
+    "std": 0.012515164268788452,
+    "ci_low": 0.0,
+    "ci_high": 0.017699115044247787,
+    "n": 2
+  },
+  {
+    "metric": "pairwise_bigram_jaccard",
+    "model": "gpt2_lnfree",
+    "mean": 0.0040650406504065045,
+    "std": 0.005748835619402826,
+    "ci_low": 0.0,
+    "ci_high": 0.008130081300813009,
+    "n": 2
+  },
+  {
+    "metric": "mean_repetition_rate",
+    "model": "gpt2",
+    "mean": 0.05866261398176292,
+    "std": 0.08296146429726668,
+    "ci_low": 0.0,
+    "ci_high": 0.11732522796352585,
+    "n": 2
+  },
+  {
+    "metric": "mean_repetition_rate",
+    "model": "gpt2_lnfree",
+    "mean": 0.00416666666666668,
+    "std": 0.005892556509887914,
+    "ci_low": 0.0,
+    "ci_high": 0.00833333333333336,
+    "n": 2
+  },
+  {
+    "metric": "sentence_adherence",
+    "model": "gpt2",
+    "mean": 0.25,
+    "std": 0.3535533905932738,
+    "ci_low": 0.0,
+    "ci_high": 0.5,
+    "n": 2
+  },
+  {
+    "metric": "sentence_adherence",
+    "model": "gpt2_lnfree",
+    "mean": 0.25,
+    "std": 0.3535533905932738,
+    "ci_low": 0.0,
+    "ci_high": 0.5,
+    "n": 2
+  }
+]

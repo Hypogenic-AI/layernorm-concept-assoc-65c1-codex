@@ -1,0 +1,257 @@
+Large Language Models are Fixated by Red
+Herrings: Exploring Creative Problem Solving and
+Einstellung Effect with the OnlyConnect Wall Dataset
+Saeid Alavi Naeini1,3,4 Raeid Saqur2,4 Mozhgan Saeidi2,4,6 John Giorgi2,4,5 Babak Taati1,2,3,4
+1Kite Research Institute, Toronto Rehabilitation Institute, University Health Network
+2Department of Computer Science, University of Toronto
+3Institute of Biomedical Engineering, University of Toronto 4Vector Institute for AI
+5Donnelly Centre for Cellular & Biomolecular Research, University of Toronto
+6Department of Biomedical Data Science, Stanford University
+{saeid.alavi, john.giorgi}@mail.utoronto.ca
+raeidsaqur@cs.toronto.edu, mozhgans@stanford.edu, babak.taati@uhn.ca
+Abstract
+The quest for human imitative AI has been an enduring topic in AI research since
+its inception. The technical evolution and emerging capabilities of the latest cohort
+of large language models (LLMs) have reinvigorated the subject beyond academia
+to the cultural zeitgeist. While recent NLP evaluation benchmark tasks test some as-
+pects of human-imitative behavior (e.g., BIG-bench’s ‘human-like behavior’ tasks),
+few, if not none, examine creative problem solving abilities. Creative problem solv-
+ing in humans is a well-studied topic in cognitive neuroscience with standardized
+tests that predominantly use the ability to associate (heterogeneous) connections
+among clue words as a metric for creativity. Exposure to misleading stimuli —
+distractors dubbed red herrings — impede human performance in such tasks via the
+fixation effect and Einstellung paradigm. In cognitive neuroscience studies, such
+fixations are experimentally induced by pre-exposing participants to orthographi-
+cally similar incorrect words to subsequent word-fragments or clues. The popular
+British quiz show Only Connect’s Connecting Wall segment essentially mimics
+Mednick’s Remote Associates Test (RAT) formulation with built-in, deliberate
+red herrings, which makes it an ideal proxy task to explore and study the fixation
+effect and Einstellung paradigm from cognitive neuroscience in LLMs. In this
+paper, we present the novel Only Connect Wall (OCW) dataset and report results
+from our evaluation of selected pre-trained language models and LLMs on creative
+problem solving tasks like grouping clue words by heterogeneous connections and
+identifying correct open knowledge domain connections in respective groups. We
+synthetically generate two additional datasets: OCW-Randomized, OCW-WordNet
+to further analyze our red-herrings hypothesis in language models. The code and
+link to the dataset are available at https://github.com/TaatiTeam/OCW.
+1 Introduction
+The remarkable capabilities of state-of-the-art large language models (LLMs) [91], across a variety
+of domains and downstream tasks [78, 10], have spurred their comparisons with artificial general
+intelligence (AGI) [5, 14] and human-imitative AI [31] systems. The extraordinary leap in capabilities
+of these LLMs over a short span — from the advent of transformer-based [ 69] pre-trained, context-
+aware language models (PLMs) [ 52, 17, 40, 36, 53] circa 2018 to 2020, to the current and latest
+cohort of increasingly larger (billions of parameters) LMs [59, 77, 57, 89, 16, 67, 18] spearheaded
+37th Conference on Neural Information Processing Systems (NeurIPS 2023) Track on Datasets and Benchmarks.
+arXiv:2306.11167v4  [cs.CL]  8 Nov 2023
+
+Wall D: Season 10, Episode 2
+Wall A: Season 11, Episode 23
+Gala Twelfth Bonfire Hen ——— night
+Orlov Churchill Digby Tony Advert 
+Animals
+Burns Marx Clarke Bender Cigar 
+Smokers
+Canal Street Castro Chelsea Darlinghurst Gay Villages
+Wall B: Season 12, Episode 27
+Jazz Gala Honeygold Jonathan Apples
+Healing Join Greg Show of Can Precede 
+Hands
+Pippin Merry Gaffer Sam Hobbits
+Twill Duct Ticker Cassette Types of 
+Tape
+Wall C: Season 15, Episode 10
+Cameo Fuji Bramley Jazz Apples
+Amy Lady Bird Dakota Dwayne Johnsons
+Thunder Magic Heat Celtics
+US 
+Basketball 
+Teams
+Gala Costume Goggles Pool Swimming 
+———
+Shrewsbury Wellington Ludlow Madeley Shropshire 
+Towns
+Bath Boarding Doge Cathode Begin with 
+Animals
+Chelsea Gum Snow Cowboy Boots
+Bolt Bond Churchill Coward English 
+Playwrights
+Figure 1: Examples of Only Connect walls with ground-truth groupings (rows) and connections
+(last column). Red herrings include orthographically identical words, e.g., Gala, Churchill and
+Chelsea in different connected groups — Gala: Gala night, Apples, Swimming gala, Churchill:
+Advert Animals, English Playwrights and Chelsea: Gay Villages, Boots — across walls. In Wall A
+(top left), the clues Churchill, Marx, Castro provide misleading stimuli inducing plausible fixation
+on historical figures within the wall.
+by the OpenAI’s GPT series [13], notably ChatGPT [ 49] and GPT-4 [48] — justifiably warrants
+such comparisons. Several natural language processing (NLP) benchmarks have been proposed to
+standardize the evaluation of these LLMs, including MMLU [ 27], BIG-bench [ 66], HELM [ 38],
+and Global-Bench [ 65]. The tasks inventory under these benchmarks are open (type of tasks)
+and dynamic (rolling additions). While a subset of these tasks aims to test for human imitative
+intelligence (e.g., nineteen tasks listed under the human-like behaviour category in BIG-bench), none
+tests for creative problem solving abilities [44] — a hallmark of human-like intelligence [31].
+Creative problem-solving by humans is a well-studied topic in cognitive neuroscience and human
+behavioural sciences literature. These studies and methods use (word) associative fluency to model
+and test creativity objectively [44, 9]. Empirical research in this context commonly employs single
+or continuous word association tests that are variants of Mednick’s seminal Remote Associates
+Test (RAT) [45]. Such tests entail finding connections or links among a presented group of words
+using associations that can be heterogeneous (e.g., synonymy, semantic, compounding) [ 86, 43].
+To exemplify, consider the cue words:{Tennis, Same, Head}. A correct connection in this triplet is:
+Match, which connects by semantic link (tennis match), synonymy (same match), and compound-
+ing (match head). Further, the word connections can also vary in degrees of figurativeness (e.g.,
+Star-Actress vs. Star-Planet) and abstractness (e.g., Humor-Sense vs. Apple-Tree). In humans,
+such creative problem-solving abilities are impeded by exposure to wrong answers [61, 62, 85] — a
+finding referred to as the fixation effect [34, 82]. A closely related similar concept is the Einstellung
+effect [42], which postulates the negative effect of previous experience when solving new problems.
+Studies examining the fixation effect induce fixations by presenting clue words intended as wrong an-
+swers (misleading stimuli) [61] dubbed “red herrings” or, by pre-exposing participants to red herrings
+before attempting creative problem-solving tasks like the RAT [45]. A slew of works in negative
+transfer learning in human cognition attempt to explain the RAT fixation phenomenon that involves
+pre-exposure to red herrings by the negative effects of prior learning on indirect or implicit measures
+of memory [63]. This negative transfer effect was demonstrated and studied using orthographically
+similar words to subsequent test word fragments as red herrings [63]. Intuitively, the red herrings
+lead participants away from the memory retrieval (or down incorrect
+
+as measured with RAT problems. Two such factors are repetition and context. A following corollary
+states that the memory strengths of red herrings determine the magnitude of a fixation effect [8].
+In this work, we study the juxtaposition of these theories from human cognitive neuroscience (fixations,
+negative transfer learning, red herring memory retrieval hypothesis) from the context of LLMs and
+natural language processing. While negative transfer learning has been observed and studied in AI
+research [76, 22], the context of these studies is limited to strict machine learning sub-domains like
+statistical distribution measures and computer vision. There has not been any work that systematically
+examines these specific concepts’ relation in AI research. Our major contributions are as follow:
+1. Only Connect Wall (OCW) Dataset and creative problem solving tasks. We introduce a
+novel dataset for evaluating creative problem solving tasks by curating the problems and human
+performance results from the popular British quiz show Only Connect [ 81, 3]. Specifically, the
+Connecting Walls segment of the show, where the tasks entail grouping sixteen (16) jumbled up clue
+words into four (4) connected groups, and naming the correct connections (Figure 1). The presented
+words have heterogeneous connections with open-domain knowledge retrieval, e.g., history, places,
+famous people, tools, and cultural references. These ‘walls’ contain red herrings or misleading
+stimuli by design, which makes this dataset an analogical proxy for RAT tests in evaluating LLMs for
+creative problem-solving. Section §2 provides a detailed description of the dataset.
+2. Experiments, results, and key findings of baseline LLMs evaluation. We evaluate a suite of
+NLP models from static embeddings to PLMs to LLMs and demonstrate that none can solve the tasks
+of the OCW dataset. Our findings show that SOTA LLMs (e.g. GPT-4 [48]) perform significantly
+worse than the expert human baseline, and somewhat surprisingly, that increasing the number of
+in-context examples in few-shot in-context-learning is ineffective. Sections §3 and §4 provide details.
+2 Only Connect Walls Dataset
+Here we focus on the Connecting Walls segment (usually the third round) of the quiz-show. Each
+wall contains sixteen jumbled-up word clues that must be sorted into four groups, each with four
+connected words. Once the groups are formed, contestants must also identify the right connection or
+relationship among the items in each group. While there is only one correct solution to each wall,
+the puzzles are designed to include several red herring clues that can fit into another category and
+red herring categories fitting multiple clues. Figure 1 shows solved sample walls from the show
+highlighting a couple of typical red herrings.
+2.1 Dataset Collection and Structure
+The OCW dataset contains 618 connecting wall puzzles and solutions in total from 15 seasons of the
+show. Each show episode has two walls. The total number of walls per season varies based on the
+(varying) number of aired season episodes. The walls were scraped from fan websites1, and human
+performance results (for grouping and connection tasks) were manually curated by watching all the
+episodes. Figure 2 depicts the high-level structure of the dataset in JSON format with self-explanatory
+object keys and comments.
+2.2 Tasks and Evaluation Metrics
+The two dataset tasks: Task 1 (Grouping), and Task 2 (Connections)are identical to the quiz-show’s
+human participant tasks. We evaluate Task 1 (Groupings) via six metrics: number of solved walls,
+number of correct groups (max. four per wall), Adjusted Mutual Information (AMI) [71], Adjusted
+Rand Index (ARI) [28], Fowlkes Mallows Score (FMS) [21], and Wasserstein Distance (WD) [54],
+normalized to (0, 1) range, between predicted and ground-truth labels [88, 70].
+We similarly evaluate Task 2 (Connections) with three metrics: exact string matching, ROUGE-1
+F1 [39], and BERTScore F1 [90]. Exact match is th
+
+Predicted Connection Ground-truth Connection Exact Match ROUGE-1 F1 BERTScore F1
+Types of numbers Types of numbers 1.00 1.00 1.00
+Slang terms for money Slang for money 0.00 0.86 0.79
+Types of trees Trees 0.00 0.50 0.63
+Bridges in London Thames bridges 0.00 0.40 0.31
+Medieval occupations Chaucer characters 0.00 0.00 0.15
+Table 1: Examples of predicted and ground-truth connections and their performance according to the
+chosen metrics. Exact match is 0 for anything but identical strings. Empirically, we observe that a
+ROUGE-1/BERTScore F1 of ≥ 0.5 indicates that a predicted connection is likely correct.
+connection and a low proportion of non-ground truth tokens. BERTScore F1 is similar but further
+relaxes this criterion, assigning a non-zero score for semantically similar (but non-identical) predicted
+tokens. Together these three metrics provide a more holistic view of model performance on Task 2
+than any one metric alone. Empirically, we find that a ROUGE-1 or BERTScore F1 of≥ 0.5 indicates
+that a predicted connection would likely be considered correct (Table 1). Note that BERTScore has
+many parameters affecting the final score; a hashcode is produced and reported for reproducibility.
+Each of the evaluation metrics for Task 1 of Task 2 could be calculated per wall, per episode, per
+season, or for the entire test set. We present results on the entire test set in this paper (§4). We split
+the dataset into a train set (62 walls), validation set (62 walls), and test set (494 walls). The primary
+goal of our dataset is to evaluate the zero- and few-shot creative problem-solving abilities of LLMs;
+as such, we elect to set the size of the test set to be much greater than train or validation sets.
+3 Experiments: Language Model Evaluations
+This section describes methods and models used to provide baseline results for the dataset. For
+Task 1 (Grouping), we use clustering techniques on word-embeddings from classical and pre-trained
+language models (PLMs) (§3.1), and few-shot in-context learning (ICL) with LLMs (§3.2). For Task
+2 (Connections), we only provide baseline results using few-shot ICL with LLMs (§3.2).
+Figure 2: JSON Structure of the OCW dataset. One truncated example is shown.
+4
+
+Hesse
+Mann
+Schiller
+Sneak
+Beaters bat
+Quaffle
+Shop
+Grimm
+Taxis
+Bludger
+Grass
+Broomstick
+Journalism
+Synthesis
+Graph
+Snitch
+HesseMann
+Schiller
+Sneak
+Beaters bat
+Quaffle
+Shop
+Grimm
+Taxis
+Bludger
+Grass
+Broomstick
+Journalism
+Synthesis
+Graph
+Snitch
+Group 1: German-born writers
+Group 2: Quidditch equipment
+Group 3: Betray
+Group 4: Photo___
+Figure 3: Solved wall ( wall_id="8cde") for Task 1 (Grouping) using best performing
+model (E5BASE) with both static and contextual embeddings. Left: solved wall using static em-
+beddings. Right: unsolved wall using contextual embeddings. 2D projection of embeddings using
+t-SNE is shown. Colors and shapes correspond to true clusters, and grey convex regions correspond
+to predicted clusters. The legend shows the ground truth connection for each group.
+3.1 Task 1: Grouping using Word Embeddings
+For the grouping task evaluation (§2.2), we use clustering algorithms on word-embeddings of the
+sixteen clue words in each wall, to group them into four predicted groups that are subsequently
+evaluated against the four ground-truth groups for each wall. A vanilla k-means (with k = 4 )
+clustering algorithm [25] does not guarantee each predicted group to have four words, thus we use
+variants like constrained clustering.
+Clustering Semi-supervised constrained clustering [72, 7] is used when the user has pre-existing
+knowledge about the desired partition (in our case, 4 groups). Here, we adopt a minimum cost flow
+network clustering approach [12] with a cluster size of four for grouping. Our preliminary analysis
+showed that clustering results exhibited slight variations across runs. This slight discrepancy could
+be attributed to the initializations of cluster centroids. To address this issue and ensure reliable
+results, we report the mean and variance of results (Table 3)across sixteen (16) runs, each with
+a unique seed and randomized order of sixteen-word clues. We tested two additional clustering
+approaches motivated by [47, 19]: (1) We constructed a self-similarity matrix containing pair-wise
+similar information about the words prior to applying constrained clustering; (2) We performed
+dimensionality reduction using Principal Component Analysis (PCA) [58] and t-distributed stochastic
+neighbor embedding (t-SNE) [68] before applying constrained clustering. Neither approach improved
+performance over raw embeddings’ clusters, and, for brevity, results are not included.
+Static word embedding We used two well-known classic word embedding models, GloVe [51] and
+FastText [23], both of which are accessed through the Flair library (Table 2). We used two FastText
+models, one pre-trained on the Common Crawl corpus and another on Wikipedia. Approximately
+10% of the total clues encountered in the dataset were out-of-vocabulary (OOV). A significant
+portion (~80%) of the OOV cases were addressed by mean pooling for clues comprised of multiple
+words to obtain one unified embedding. For the remaining OOV instances, we combined the static
+embeddings with BytePair encoded[26] sub-words.
+PLMs We explored general-purpose PLMs (BERT [ 17], RoBERTa [ 40], DistilBERT [ 56],
+ELMo [52]) as well as Sentence Transformers (MPNet [ 64], E5 [ 75]; see Table 2). We evalu-
+ated performance with and without contextual embeddings.2 Depending on the context, some clues
+in the dataset may appear across different walls with different meanings. As an example, the word
+2Static embeddings are obtained from the PLMs by passing clues through the model independently.
+5

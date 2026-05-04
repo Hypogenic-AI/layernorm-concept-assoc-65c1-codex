@@ -1,0 +1,3 @@
+{"model": "gpt2_lnfree", "wall_id": "882c", "clues": ["Puzzle", "Manhattan", "B", "Wrench", "Smith", "Nuts", "Brooks", "Blanc", "Suit", "Screwdriver", "Sidecar", "Margarita", "Hammer", "Business", "Gimlet", "Gibson"], "embedding_shape": [16, 768]}
+{"model": "gpt2_lnfree", "wall_id": "6e27", "clues": ["Hammer", "Horseshoe", "Queen", "Pope", "Victoria", "Reichenbach", "Fairy", "Angel", "Madeleine", "Holmes", "Lawrence", "Marlowe", "Spenser", "Marble", "Pound", "Churchill"], "embedding_shape": [16, 768]}
+{"model": "gpt2_lnfree", "wall_id": "0299", "clues": ["Wright", "Emerald", "Lime", "Olive", "Jay", "Warner", "Sea", "Jade", "Chemical", "Pea", "Dee", "Queue", "Moss", "Straw", "Frost", "Russell"], "embedding_shape": [16, 768]}

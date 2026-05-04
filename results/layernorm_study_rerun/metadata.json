@@ -1,0 +1,35 @@
+{
+  "args": {
+    "seed": 42,
+    "num_generations": 12,
+    "max_new_tokens": 80,
+    "temperature": 0.9,
+    "top_p": 0.95,
+    "max_prompts": 20,
+    "ocw_split": "validation",
+    "max_walls": 62,
+    "batch_size": 12,
+    "embedder": "sentence-transformers/all-MiniLM-L6-v2",
+    "results_dir": "results/layernorm_study_rerun",
+    "figures_dir": "figures/layernorm_study_rerun"
+  },
+  "models": [
+    {
+      "label": "gpt2",
+      "hf_name": "gpt2"
+    },
+    {
+      "label": "gpt2_lnfree",
+      "hf_name": "schaeff/gpt2-small_LNFree300"
+    }
+  ],
+  "hardware": {
+    "python": "3.12.8 (main, Dec 19 2024, 14:33:20) [Clang 18.1.8 ]",
+    "torch": "2.11.0+cu130",
+    "cuda_available": false,
+    "gpu_count": 4
+  },
+  "prompt_count": 20,
+  "wall_count": 62,
+  "elapsed_seconds": 264.25
+}

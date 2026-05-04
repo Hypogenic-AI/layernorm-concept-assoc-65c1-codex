@@ -1,0 +1,272 @@
+Published as a conference paper at COLM 2025
+NOVELTY BENCH : Evaluating Language Models for Human-
+like Diversity
+Yiming Zhang∗ Harshita Diddee Susan Holm Hanchen Liu
+Xinyue Liu Vinay Samuel Barry Wang Daphne Ippolito
+Carnegie Mellon University
+Abstract
+Language models have demonstrated remarkable capabilities on standard
+benchmarks, yet they struggle increasingly from mode collapse, the inabil-
+ity to generate diverse and novel outputs. Our work introduces NOVEL -
+TYBENCH , a benchmark specifically designed to evaluate the ability of
+language models to produce multiple distinct and high-quality outputs.
+NOVELTY BENCH utilizes prompts curated to elicit diverse answers and
+filtered real-world user queries. Evaluating 20 leading language models, we
+find that current state-of-the-art systems generate significantly less diversity
+than human writers. Notably, larger models within a family often exhibit
+less diversity than their smaller counterparts, challenging the notion that
+capability on standard benchmarks translates directly to generative utility.
+While prompting strategies like in-context regeneration can elicit diversity,
+our findings highlight a fundamental lack of distributional diversity in
+current models, reducing their utility for users seeking varied responses
+and suggesting the need for new training and evaluation paradigms that
+prioritize diversity alongside quality.1
+1 Introduction
+Diversity of opinion, preference, and experience is a fundamental trait of being human. If
+you were to ask “Tell me a joke” or “What is the best book of all time?” to the next five
+people you talk to, with high likelihood you would receive five different answers. It is
+reasonable to expect language models to generate responses that have the same level of
+diversity as humans. Yet, when we ask models such as GPT-4 to recommend a movie or
+Claude 3 to suggest several vacation destinations, we often receive variations of the same
+few ideas—a phenomenon known as mode collapse Hamilton (2024).
+This lack of diversity in language model outputs represents a significant limitation. To-
+day’s aligned language models tend to produce lower entropy distributions than earlier
+generations of models (Zhang et al., 2024b), and when asked to generate (using random
+sampling) several responses to an open-ended prompt, the responses will often contain
+substantial near-duplicates (O’Mahony et al., 2024). This tendency can harm the utility of
+these models for subjective tasks where different users may have diverging preferences and
+needs (Zhang et al., 2024a). Sorensen et al. (2024) refer to the inability of today’s LLMs to
+produce diverse generations as a failure of pluralistic alignment, which can lead to less useful
+and customizable AI systems.
+While today’s LLMs are evaluated at great length for knowledge and reasoning abilities, they
+are rarely evaluated for response diversity, and there are no widely-adopted benchmarks
+for assessing this trait. The majority of existing evaluation benchmarks are “mode-seeking”,
+in the sense that they only assess the quality of the most likely generation of language
+∗Correspondence to <yimingz3@cs.cmu.edu>.
+1Code and data are available at https://novelty-bench.github.io.
+1
+arXiv:2504.05228v4  [cs.CL]  9 Aug 2025
+
+Published as a conference paper at COLM 2025
+ 1) Parallel lines have so much in common.
+ 2) A boiled egg is hard to beat.
+3) Parallel lines: So much in common.
+k) I ate a clock. Very time-consuming.
+…
+ = #ClustersDistinctk
+ = Sum of novel answer 
+utilities, with diminishing returns
+Utilityk
+Prompt: Tell me a short joke
+LLM generates k candidates
+Candidates are clustered
+1
+3
+… 2
+…
+k
+(           )+(           )+(           )+… (           )  u u u u1 2 k3
+Candidate utilities are evaluated
+1
+2
+3
+4
+Figure 1: NOVELTY BENCH overview. We partition generations into functional equivalence
+classes and introduce two metrics: distinct k counts unique equivalence classes among k
+samples, and utilityk combines novelty and quality, weighing utility of individual genera-
+tions by user patience (p = 0.8) and only considering novel generations.
+models and do not assess the capability of models to produce meaningful alternatives. 2
+This evaluation paradigm is problematic because it creates misaligned incentives: model
+developers focus on improving the quality of the single most likely generation rather than
+the diversity of the entire distribution of possible outputs.
+In this work, we set out to measure not only what language models can generate, but
+also what they cannot. To this end, we propose NOVELTY BENCH (Figure 1), a benchmark
+for measuring how well language models can generate multiple differing but still correct
+answers to user requests that involve subjectivity, randomness, and creativity—in other
+words, queries that a room of humans would produce a large variety of answers to. We
+intend for our benchmark to serve as a complement to existing quality-based evaluation
+benchmarks, encouraging model developers to strive toward more pluralistic models, while
+also taking generation quality into account.
+In summary, we introduce NOVELTY BENCH , a benchmark consisting of 1,100 prompts that
+we expect to elicit variable answers from humans, 100 of which are annotated with responses
+from eight human annotators. We propose a unified measure of novelty and quality which
+can be used to gauge how well an LLM can produce diverse, high-quality responses to a
+given prompt. We evaluate NOVELTY BENCH on twenty frontier models, including GPT-4o,
+Claude 3.5 Sonnet and Gemini 2.0 Pro, and find that all suffer from a lack of diversity. Our
+evaluation further reveals that larger and more capable models in the same model family
+tend to produce less diverse outputs, highlighting a concerning trend in the development of
+state-of-the-art language models. These findings underscore the need for future work on
+training techniques that promote diversity alongside quality, and for evaluation paradigms
+that better reflect the full spectrum of human preferences and creative capabilities.
+2 Related Work
+Prior work has established that language model outputs often exhibit biases towards specific
+demographic groups (Santurkar et al., 2023; Sun et al., 2023), genders (del Arco et al., 2024),
+countries (Durmus et al., 2023), or personas (Giorgi et al., 2024; Oketunji et al., 2023).
+This homogenization can limit LLM utility on downstream tasks (Agarwal et al., 2024;
+2In an analysis of 67 benchmark papers published at COLM 2024 and ICLR 2025, we found that
+over 90% of these papers evaluate language models based on a single/best generation, instead of
+considering the full model output distribution.
+2
+
+Published as a conference paper at COLM 2025
+Song et al., 2024). Research into diversifying language model outputs has seen several
+promising directions. Common approaches include adjusting decoding methods, such
+as increasing temperature (Shur-Ofry et al., 2024; Peeperkorn et al., 2024), or modifying
+training objectives (Li et al., 2016; Zhang et al., 2024b; Li et al., 2024; Lanchantin et al., 2025).
+The idea that we should evaluate language models not only on the quality of their gen-
+erations but also on their diversity is not entirely new. The 2020 Duolingo Shared Task
+involved generating several diverse but still correct translations of an input sentence (May-
+hew et al., 2020). Recent work by Cheng et al. (2024) further highlights the probabilistic
+nature of commonsense knowledge in language models, and proposed an probabilistic eval-
+uation method for commonsense knowledge that relies on open-ended generation instead
+of multiple-choice questions. Numerous studies of NLG systems have proposed metrics
+for evaluating diversity, based on perplexity (Lewis et al., 2017; Fan et al., 2018), n-gram
+overlaps (Zhu et al., 2018; Shu et al., 2019; Duˇsek et al., 2020), and embedding distances (Du
+& Black, 2019). However, existing metrics often correlate poorly with human judgments
+of content diversity (Tevet & Berant, 2021). In contrast to prior work, NOVELTY BENCH
+uniquely evaluates an LLM’s capacity to generate a set of outputs that are simultaneously
+diverse and high-quality.
+3 Benchmark
+Our benchmark evaluates language model diversity using two distinct datasets: NB-
+CURATED which contains 100 prompts manually curated by the authors, and NB-
+WILD CHAT which consists of 1,000 prompts automatically curated from real user interac-
+tions with ChatGPT. LLM performance on the benchmark is evaluated based on the quality
+and novelty of the set of generations produced by the LLM.
+3.1 Dataset Curation
+To test language models’ capabilities to produce novel generations, we need a dataset
+of prompts that elicit diverse responses. We developed two sets of such prompts: NB-
+CURATED contains prompts designed by the authors to have multiple valid answers,
+while NB-W ILD CHAT is a collection of 1,000 prompts sourced from the WildChat-1M
+dataset (Zhao et al., 2023).
+NB-C URATED . The curated dataset is designed to contain four distinct categories where
+diversity is expected.
+• Randomness: prompts that involve randomizing over a set of options.
+Example: Roll a make-believe 20-sided die.
+• Factual Knowledge : prompts that request underspecified factual information,
+which allow many valid answers.
+Example: List a capital city in Africa.
+• Creative Writing: prompts that involve generating a creative form of text, including
+poetry, and story-writing.
+Example: Tell me a riddle.
+• Subjectivity: prompts that request subjective answers or opinions.
+Example: What’s the best car to get in 2023?
+The authors of the paper then write responses to each of the prompts, resulting in 8 human
+responses per prompt. Since this is a rather homogeneous set of human annotators (all
+work/study at the same institution), we expect this response set to represent an approximate
+lower bound on actual human diversity. However, as we will show in Section 4.3, even this
+group produced more diverse responses than most state-of-the-art language models.
+NB-W ILD CHAT. WildChat is a collection of 1M real user conversations with ChatGPT,
+which is a valuable resource for understandingreal user needs of creativitysince they represent
+usage of language models in the wild. However, we cannot use this dataset directly because
+3
+
+Published as a conference paper at COLM 2025
+the vast majority of its prompts do not allow for multiple valid answers.During processing,
+we first used Llama Guard 3 (Chi et al., 2024) to filter out inappropriate user prompts. A
+small number of IPs contributed a disproportionately high number of interactions, leading
+to topic bias (e.g., towards anime); we deduplicated the dataset based on user IP to achieve
+a more even topic distribution.After preprocessing, we used GPT-4o as a classifier to select
+prompts expected to elicit diverse generations. 3 To make sure that the selected prompts
+match the desired criteria, we manually labeled 100 prompts from the dataset (with 50
+accepted and 50 rejected by GPT-4o), and found an 85% agreement between the classifier
+and the human labels. Randomly sampled prompts from this dataset are provided in
+Appendix A.3.
+3.2 Evaluating Novelty
+Models with diversity alone would not be sufficient for users: each of the individual genera-
+tions should also be of high quality, with the ultimate goal of maximizing the cumulative
+utility of a user who interacts with the model. Thus, our evaluation framework aims to
+assess the extent to which the set of responses is mutually diverse and simultaneously
+high-quality, and our key metric directly models the cumulative utility for a user who
+observes a sequence of generations from a language model.
+Partitioning the output space. Defining diversity with automatic metrics is challenging
+due to the complex nature of language. Traditional metrics like n-gram overlap or embed-
+ding similarity often fail to capture meaningful diversity, as they may either overemphasize
+trivial differences (e.g., paraphrasing) or miss important semantic distinctions. Prior work
+has attempted to measure diversity using lexical variation (Li et al., 2016), embedding
+distances (Zhang et al., 2019), or entropy-based measures (Du ˇsek et al., 2020), but these
+approaches typically struggle to distinguish between functional diversity and surface-level
+variations that provide little additional value to users (Tevet & Berant, 2021).
+Accordingly, to understand the diversity of the output space of language models, we propose
+a method that learns to partition the output space into equivalence classes from human
+annotations. Each class represents one unique generation that is roughly equivalent to the
+others in the same class and different from the generations in other classes.
+Partitioning the output space boils down to defining a notion of equivalence between pairs
+of generations. Language model outputs can be trivially different from each other (e.g.,
+in terms of style, tone, or length). We argue that true diversity should go beyond these
+surface-level differences, since such variations provide little utility to the user. Therefore,
+we mainly consider functional equivalence in the context of this work, which defines two
+generations to be different if and only if a user who has seen one generation would likely
+benefit from seeing the other. For example, in a story generation task, if two generations
+are retelling the original story with identical plot, but different character names, then we
+consider them to be functionally equivalent.
+While this definition of functional equivalence is intuitive for human evaluators, it is non-
+trivial to capture this notion of equivalence using existing similarity metrics.4 To this end,
+the authors annotated 1,100 pairs of generations conditioned on prompts from both the
+NB-C URATED and NB-W ILD CHAT datasets sampled from a diverse set of models (see
+Table 1 for a list of models). For annotation, we developed guidelines that focused on
+identifying whether two generations would provide distinct value to a user, rather than just
+surface-level differences.
+From these annotated pairs, we used 1,000 for training and fine-tuned a deberta-v3-large
+model (He et al., 2021) to predict binary functional equivalence between two generations.
+To ensure that the classifier mat
+
+Published as a conference paper at COLM 2025
+of 100 pairs. The classifier achieved 79% accuracy compared to human labels, with an F1
+score of 0.811, indicating strong performance on both positive and negative classes.
+With the equivalence classifier, we can partition the output space into equivalence classes.
+For each new generation, we compare it against a random generation from each existing
+class. If the classifier determines it is functionally equivalent to any existing class, we assign
+it to the first such class found; otherwise, we create a new class with this generation. We
+define the distinctk metric as the number of equivalence classes in a partition of k sample
+generations from a language model:
+distinctk := |{ci | i ∈ [k]}| (1)
+where ci is the equivalence class that the i-th generation belongs to. For a sufficiently large k,
+distinctk quantifies the number of meaningfully unique generations that a user could have
+observed by sampling from the model k times. A higher score indicates that the model is
+better at producing meaningful alternatives to the most likely generation.
+Unified measure of diversity and quality. How do we measure the cumulative utility
+of a sequence of generations s1, s2, . . ., sk? To achieve this, we first need a model of user
+behavior that describes how users interact with and consume language model generations.
+Inspired by the user model underlying the rank-biased precision metric in information
+retrieval (Moffat & Zobel, 2008), we assume that the user has a patience level p ∈ [0, 1]: after
+observing each additional generation, they have a probability p of requesting an additional
+generation from the language model and observing the next generation, and a probability
+1 − p of stopping interacting with the model. In other words, each additional generation
+should have a geometrically decaying effect on utility since it is more likely that the user
+simply would not have observed it.
+To model the marginal utility of a distinct generation, we assume that the utility of a
+generation that is functionally equivalent to a previous generation is zero. Under our user
+model with patience p, the cumulative utility of a sequence of generations is given by:
+utilityk := 1 − p
+1 − pk
+k
+∑
+i=1
+pi−1 · 1
+
+ci ̸= cj, ∀j < i
+
+· ui
+| {z }
+marginal utility of generation i
+(2)
+where ci is the equivalence class of the i-th generation, ui is the utility of the i-th generation
+given by some utility function, and 1−p
+1−pk is a normalization factor. In our evaluation setup,
+we set the patience level to 0.8. Note that asp → 0, the metric converges to quality evaluation
+of a single generation, the de facto standard in language model evaluation.
+Computing utility. We use the Skywork-Reward-Gemma-2-27B-v0.2 model (Liu et al., 2024)
+to score the quality of individual generations. We chose this reward model because it is
+one of the top performing models on RewardBench (Lambert et al., 2024), and outperforms
+larger models such as Nvidia’s 70B Nemotron model (Wang et al., 2024).
+The reward scores produced by the reward model are real-valued and difficult to interpret
+for humans. To map these scores into a more interpretable utility measure that outputs
+values in {1, 2,. . ., 10}, we computed the distribution of reward values for 2,400 model
+generations on MT-Bench (Zheng et al., 2023) and used quality scores judged by GPT-4 to
+calibrate the reward mapping to match the score distributions.
+4 Evaluation Results on N OVELTY BENCH
+4.1 Models considered
+We are particularly interested in the behavior of “aligned” language models which have been
+adapted using supervised finetuning and/or reinforcement learning to be conversational,
+instruction-following, and helpful. In particular, we consider a list of 20 state-of-the-art
+5

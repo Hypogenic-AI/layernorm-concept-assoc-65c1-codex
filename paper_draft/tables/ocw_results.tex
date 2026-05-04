@@ -1,0 +1,17 @@
+\begin{table*}[t]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Metric} & \textbf{\gpttwo} & \textbf{\lnfreegpt} & \textbf{Delta (LN-free $-$ GPT-2)} & \textbf{FDR-adjusted $p$} \\
+\midrule
+\texttt{association\_auc} & 0.527 [0.515, 0.540] & {\bf 0.529} [0.519, 0.541] & +0.0023 & 0.706 \\
+\texttt{similarity\_gap} & 0.00058 [0.00031, 0.00089] & {\bf 0.00105} [0.00024, 0.00186] & +0.00047 & 0.299 \\
+\texttt{anisotropy}$\downarrow$ & 0.992 [0.991, 0.992] & {\bf 0.964} [0.961, 0.967] & -0.0273 & {\bf $8.5\times10^{-26}$} \\
+\texttt{effective\_rank} & 1.35 [1.27, 1.45] & {\bf 2.56} [2.35, 2.79] & +1.21 & {\bf $1.5\times10^{-11}$} \\
+\bottomrule
+\end{tabular}%
+}
+\caption{Association-geometry results on 62 \ocw validation walls. Entries report mean with 95\% bootstrap confidence interval in brackets. Lower anisotropy is better; higher is better for the remaining metrics. Best values are in \textbf{bold}.}
+\label{tab:ocw-results}
+\end{table*}

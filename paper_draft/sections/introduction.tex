@@ -1,0 +1,22 @@
+\section{Introduction}
+\label{sec:introduction}
+
+Open-ended language generation fails in two different ways. It can collapse because the decoder keeps returning high-probability continuations, and it can collapse because the model's internal geometry already favors safe associations over remote ones. The first problem is well known in text generation \citep{holtzman2020curious}. The second remains much less tested, even though recent work argues that LayerNorm changes transformer behavior at the level of residual-space projection and token selectability rather than acting only as a training stabilizer \citep{xiong2020layernorm,brody2023expressivity}.
+
+\para{Why this question matters.} Creative tasks are a useful stress test because they expose the gap between the many concept combinations a model could represent and the smaller set it actually emits. If LayerNorm narrows that usable concept space, then decoding tricks alone cannot recover the lost variation. The practical implication is direct: improving creativity may require architectural interventions, not only better sampling or alignment choices.
+
+\para{What is missing in prior work?} Existing literatures stop short of the direct test we need. LayerNorm papers explain optimization and attention geometry \citep{xiong2020layernorm,brody2023expressivity,zhu2025transformers}. Diversity papers show that language models often underproduce varied outputs \citep{holtzman2020curious,zhang2025noveltybench}. Creativity and association benchmarks show that models can still struggle on remote association and distractor-heavy tasks \citep{chen2023creativity,naeini2023ocw}. However, none of these lines directly compares a normalized and LN-free language model on both creative outputs and association geometry.
+
+\para{Our approach.} We run a matched comparison between vanilla \gpttwo and \lnfreegpt, a released checkpoint with LayerNorm removed post training. We evaluate 12 generations for each of 20 creativity prompts from \noveltybench and compute lexical, semantic, and repetition-based diversity metrics. We then embed clue strings from 62 validation walls in \ocw and measure association separability, anisotropy, and effective rank. This paired design lets us ask whether broader internal geometry is accompanied by broader creative behavior.
+
+\para{What do we find?} The answer is mixed. Removing LayerNorm increases semantic response spread under fixed decoding ($0.803 \rightarrow 0.831$, FDR-adjusted $p=0.024$), sharply reduces embedding anisotropy on \ocw ($0.992 \rightarrow 0.964$, FDR-adjusted $p=8.5\times10^{-26}$), and nearly doubles effective rank ($1.35 \rightarrow 2.56$, FDR-adjusted $p=1.5\times10^{-11}$). But it does not deliver a reliable gain in \texttt{distinct\_1}, \texttt{distinct\_2}, lexical overlap, sentence adherence, or association AUC. The internal geometry broadens; the surface output does not become consistently more novel.
+
+\para{Our contributions.} We make four concrete contributions:
+\begin{itemize}[leftmargin=*,itemsep=0pt,topsep=0pt]
+    \item We test a direct architectural hypothesis about whether LayerNorm contributes to creative and associative collapse.
+    \item We conduct a paired comparison that connects creative output metrics to hidden-state geometry in the same model family.
+    \item We show that LN removal produces large, consistent geometric changes without a matching gain in lexical novelty or association separability.
+    \item We provide a reproducible local pipeline with saved generations, wall embeddings, summary tables, and plots for follow-up analysis.
+\end{itemize}
+
+The rest of the paper reviews related work, describes the experimental protocol, presents the main results, and then discusses what the mismatch between geometry and surface diversity implies for creativity-oriented model design.

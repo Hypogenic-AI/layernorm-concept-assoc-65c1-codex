@@ -1,0 +1,19 @@
+\begin{table*}[t]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Metric} & \textbf{\gpttwo} & \textbf{\lnfreegpt} & \textbf{Delta (LN-free $-$ GPT-2)} & \textbf{FDR-adjusted $p$} \\
+\midrule
+\texttt{distinct\_1} & {\bf 0.463} [0.449, 0.476] & 0.451 [0.439, 0.464] & -0.0117 & 0.258 \\
+\texttt{distinct\_2} & {\bf 0.899} [0.888, 0.909] & 0.884 [0.871, 0.896] & -0.0151 & 0.115 \\
+\texttt{embedding\_dispersion} & 0.803 [0.772, 0.833] & {\bf 0.831} [0.804, 0.857] & +0.0285 & {\bf 0.024} \\
+\texttt{pairwise\_bigram\_jaccard}$\downarrow$ & {\bf 0.0063} [0.0053, 0.0074] & 0.0081 [0.0067, 0.0096] & +0.0018 & 0.105 \\
+\texttt{mean\_repetition\_rate}$\downarrow$ & 0.0277 [0.0170, 0.0404] & {\bf 0.0256} [0.0168, 0.0365] & -0.0021 & 0.766 \\
+\texttt{sentence\_adherence} & {\bf 0.222} [0.167, 0.250] & 0.167 [0.083, 0.250] & -0.0556 & 0.600 \\
+\bottomrule
+\end{tabular}%
+}
+\caption{Creative-generation results on 20 \noveltybench prompts. Entries report mean with 95\% bootstrap confidence interval in brackets. For \texttt{pairwise\_bigram\_jaccard} and \texttt{mean\_repetition\_rate}, lower is better; higher is better for the other metrics. Best values are in \textbf{bold}.}
+\label{tab:generation-results}
+\end{table*}

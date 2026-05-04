@@ -1,0 +1,302 @@
+Published as a conference paper at ICLR 2020
+THE CURIOUS CASE OF
+NEURAL TEXT DeGENERATION
+Ari Holtzman†‡ Jan Buys§† Li Du† Maxwell Forbes†‡ Yejin Choi†‡
+†Paul G. Allen School of Computer Science & Engineering, University of Washington
+‡Allen Institute for Artiﬁcial Intelligence
+§Department of Computer Science, University of Cape Town
+{ahai,dul2,mbforbes,yejin}@cs.washington.edu, jbuys@cs.uct.ac.za
+ABSTRACT
+Despite considerable advances in neural language modeling, it remains an open
+question what the best decoding strategy is for text generation from a language
+model (e.g. to generate a story). The counter-intuitive empirical observation is
+that even though the use of likelihood as training objective leads to high quality
+models for a broad range of language understanding tasks, maximization-based
+decoding methods such as beam search lead to degeneration — output text that is
+bland, incoherent, or gets stuck in repetitive loops.
+To address this we propose Nucleus Sampling, a simple but effective method to
+draw considerably higher quality text out of neural language models than previ-
+ous decoding strategies. Our approach avoids text degeneration by truncating the
+unreliable tail of the probability distribution, sampling from the dynamic nucleus
+of tokens containing the vast majority of the probability mass.
+To properly examine current maximization-based and stochastic decoding meth-
+ods, we compare generations from each of these methods to the distribution of
+human text along several axes such as likelihood, diversity, and repetition. Our re-
+sults show that (1) maximization is an inappropriate decoding objective for open-
+ended text generation, (2) the probability distributions of the best current language
+models have an unreliable tail which needs to be truncated during generation and
+(3) Nucleus Sampling is currently the best available decoding strategy for gener-
+ating long-form text that is both high-quality — as measured by human evaluation
+— and as diverse as human-written text.
+Context: In a shocking finding, scientist discovered a herd of unicorns living in a remote, previously unexplored valley, 
+in the Andes Mountains. Even more surprising to the researchers was the fact that the unicorns spoke perfect English.
+Beam Search, b=32:
+"The study, published in the Proceedings of the 
+National Academy of Sciences of the United States of 
+America (PNAS), was conducted by researchers from the 
+Universidad Nacional Autónoma de México (UNAM) and 
+the Universidad Nacional Autónoma de México 
+(UNAM/Universidad Nacional Autónoma de 
+México/Universidad Nacional Autónoma de 
+México/Universidad Nacional Autónoma de 
+México/Universidad Nacional Autónoma de ...”
+Pure Sampling:
+They were cattle called Bolivian Cavalleros; they live in a 
+remote desert uninterrupted by town , and they speak huge, 
+beautiful, paradisiacal Bolivian linguistic thing . They say, 
+'Lunch, marge.' They don't tell what the lunch is, " director 
+Professor Chuperas Omwell told Sky News. " They've only 
+been talking to scientists, like we're being interviewed by TV 
+reporters. We don't even stick around to be interviewed by 
+TV reporters. Maybe that's how they figured out that they're 
+cosplaying as the Bolivian Cavalleros. "
+Figure 1: Even with substantial human context and the powerful GPT-2 Large language model,
+Beam Search (size 32) leads to degenerate repetition (highlighted in blue) while pure sampling
+leads to incoherent gibberish (highlighted in red). When b≥ 64, both GPT-2 Large and XL (774M
+and 1542M parameters, respectively) prefer to stop generating immediately after the given context.
+1 I NTRODUCTION
+On February 14th 2019, OpenAI surprised the scientiﬁc community with an impressively high-
+quality article about Ovid’s Unicorn, written by GPT-2. 1 Notably, the top-quality generations ob-
+1https://openai.com/blog/better-language-models/
+1
+arXiv:1904.09751v2  [cs.CL]  14 Feb 2020
+
+Published as a conference paper at ICLR 2020
+tained from the model rely on randomness in the decoding method, in particular through top-k sam-
+pling that samples the next word from the top k most probable choices (Fan et al., 2018; Holtzman
+et al., 2018; Radford et al., 2019), instead of aiming to decode text that maximizes likelihood.
+In fact, decoding strategies that optimize for output with high probability, such as beam search, lead
+to text that is incredibly degenerate, even when using state-of-the-art models such as GPT-2 Large,
+as shown in Figure 1. This may seem counter-intuitive, as one would expect that good models
+would assign higher probability to more human-like, grammatical text. Indeed, language models
+do generally assign high scores to well-formed text, yet the highest scores for longer texts are often
+generic, repetitive, and awkward. Figure 2 exposes how different the distribution of probabilities
+assigned to beam search decoded text and naturally occurring text really are.
+Perhaps equally surprising is the right side of Figure 1, which shows that pure sampling — sampling
+directly from the probabilities predicted by the model — results in text that is incoherent and almost
+unrelated to the context. Why is text produced by pure sampling so degenerate? In this work we
+show that the “unreliable tail” is to blame. This unreliable tail is composed of tens of thousands of
+candidate tokens with relatively low probability that are over-represented in the aggregate.
+To overcome these issues we introduce Nucleus Sampling (§3.1). The key intuition of Nucleus
+Sampling is that the vast majority of probability mass at each time step is concentrated in thenucleus,
+a small subset of the vocabulary that tends to range between one and a thousand candidates. Instead
+of relying on a ﬁxed top-k, or using a temperature parameter to control the shape of the distribution
+without sufﬁciently suppressing the unreliable tail, we propose sampling from the top- p portion of
+the probability mass, expanding and contracting the candidate pool dynamically.
+In order to compare current methods to Nucleus Sampling, we compare vari-
+ous distributional properties of generated text to the reference distribution, such
+as the likelihood of veering into repetition and the perplexity of generated text.
+0
+0.2
+0.4
+0.6
+0.8
+1
+0 20 40 60 80 100
+Probability
+Timestep
+Beam Search T ext is Less Surprising
+Beam Search
+Human
+Beam Search
+...to provide an overview of the 
+current state-of-the-art in the field 
+of computer vision and machine 
+learning, and to provide an 
+overview of the current
+state-of-the-art in the field of
+computer vision and machine 
+learning, and to provide an
+overview of the current 
+state-of-the-art in the field of 
+computer vision and machine
+learning, and to provide an
+overview of the current 
+state-of-the-art in the field of 
+computer vision and machine 
+learning, and...
+Human
+...which grant increased life span
+and three years warranty. The 
+Antec HCG series consists of five 
+models with capacities spanning 
+from 400W to 900W. Here we 
+should note that we have already 
+tested the HCG-620 in a previous 
+review and were quite satisfied 
+With its performance. In today's 
+review we will rigorously test the 
+Antec HCG-520, which as its model
+number implies, has 520W capacity 
+and contrary to Antec's strong
+beliefs in multi-rail PSUs is 
+equipped...
+Figure 2: The probability assigned to tokens gen-
+erated by Beam Search and humans, given the
+same context. Note the increased variance that
+characterizes human text, in contrast with the end-
+less repetition of text decoded by Beam Search.
+The latter reveals that text generated by maxi-
+mization or top-k sampling is too probable, in-
+dicating a lack of diversity and divergence in
+vocabulary usage from the human distribution.
+On the other hand, pure sampling produces text
+that is signiﬁcantly less likely than the gold,
+corresponding to lower generation quality.
+V ocabulary usage and Self-BLEU (Zhu 
+
+Published as a conference paper at ICLR 2020
+2 B ACKGROUND
+2.1 T EXT GENERATION DECODING STRATEGIES
+A number of recent works have alluded to the disadvantages of generation by maximization, which
+tend to generate output with high grammaticality but low diversity (Kulikov et al., 2019; Holtzman
+et al., 2018; Fan et al., 2018). Generative Adversarial Networks (GANs) have been a prominent
+research direction (Yu et al., 2017; Xu et al., 2018), but recent work has shown that when qual-
+ity and diversity are considered jointly, GAN-generated text fails to outperform generations from
+language models (Caccia et al., 2018; Tevet et al., 2019; Semeniuta et al., 2018). Work on neural di-
+alog systems have proposed methods for diverse beam search, using a task-speciﬁc diversity scoring
+function or constraining beam hypotheses to be sufﬁciently different (Li et al., 2016a; Vijayakumar
+et al., 2018; Kulikov et al., 2019; Pal et al., 2006). While such utility functions encourage desirable
+properties in generations, they do not remove the need to choose an appropriate decoding strategy,
+and we believe that Nucleus Sampling will have complementary advantages in such approaches.
+Finally, Welleck et al. (2020) begin to address the problem of neural text degeneration through an
+“unlikelihood loss”, which decreases training loss on repeated tokens and thus implicitly reduces
+gradients on frequent tokens as well. Our focus is on exposing neural text degeneration and provid-
+ing a decoding solution that can be used with arbitrary models, but future work will likely combine
+training-time and inference-time solutions.
+2.2 O PEN -ENDED VS DIRECTED GENERATION
+Many text generation tasks are deﬁned through (input, output) pairs, such that the output is a con-
+strained transformation of the input. Example applications include machine translation (Bahdanau
+et al., 2015), data-to-text generation (Wiseman et al., 2017), and summarization (Nallapati et al.,
+2016). We refer to these tasks as directed generation. Typically encoder-decoder architectures
+are used, often with an attention mechanism (Bahdanau et al., 2015; Luong et al., 2015) or using
+attention-based architectures such as the Transformer (Vaswani et al., 2017). Generation is usually
+performed using beam search; since output is tightly scoped by the input, repetition and generic-
+ness are not as problematic. Still, similar issues have been reported when using large beam sizes
+(Koehn & Knowles, 2017) and more recently with exact inference (Stahlberg & Byrne, 2019), a
+counter-intuitive observation since more comprehensive search helps maximize probability.
+Open-ended generation, which includes conditional story generation and contextual text continua-
+tion (as in Figure 1), has recently become a promising research direction due to signiﬁcant advances
+in neural language models (Clark et al., 2018; Holtzman et al., 2018; Fan et al., 2018; Peng et al.,
+2018; Radford et al., 2019). While the input context restricts the space of acceptable output genera-
+tions, there is a considerable degree of freedom in what can plausibly come next, unlike in directed
+generation settings. Our work addresses the challenges faced by neural text generation with this
+increased level of freedom, but we note that some tasks, such as goal-oriented dialog, may fall
+somewhere in between open-ended and directed generation.
+3 L ANGUAGE MODEL DECODING
+Given an input text passage as context, the task of open-ended generation is to generate text that
+forms a coherent continuation from the given context. More formally, given a sequence ofm tokens
+x1 . . . xm as context, the task is to generate the next n continuation tokens to obtain the completed
+sequence x1 . . . xm+n. We assume that models compute P (x1:m+n) using the common left-to-right
+decomposition of the text probability,
+P (x1:m+n) =
+m+n∏
+i=1
+P (xi|x1 . . . xi−1), (1)
+which is used to generate the generation token-by-token using a particular decoding strategy.
+Maximization-base
+
+Published as a conference paper at ICLR 2020
+dsfsadfd
+An unprecedented number of mostly young whales have become stranded on 
+the West Australian coast since 2008.
+Poor nutrition has led to a rise in the number of stranded humpback whales on the 
+West Australian coast, veterinary researchers have said. Carly Holyoake, from Murdoch 
+University, at the Australian Veterinary Association's annual conference in Perth on 
+Wednesday, said an unprecedented number of mostly young whales had become 
+stranded on the coast since 2008.
+There has been an unprecedented number of calves caught in the nets of whaling 
+stations that operate in WA. Pilot whales continue to migrate to feeding grounds to 
+feed their calves. They are now vulnerable due to the decline of wild populations; 
+they are restricted to one breeding site each year. Image copyright Yoon Bo Kim But, 
+with sharp decline in wild populations the size of the Petrels are shrinking and dwindling
+population means there will only be room for a few new fowl.
+Pumping Station #3 shut down due to construction damage Find more at: 
+www.abc.net.au/environment/species-worry/
+in-the-top-10-killer-whale-catastrophes-in-history.html
+“In the top 10 killer whale catastrophes in history :
+1) 1986: Up to 12 orcas struck by lightning ; many drowned and many more badly injured.
+Last week's intense storms and a series of powerful cyclones have been officially blamed 
+for the deaths of at leas t nine large fin whales near Whitsundays - the largest loss of any
+species globally. The fin whales: packed in the belly of one killer whale thrashing madly
+in fear as another tries to bring it to safety. When the colossal animal breached the
+waters of Whitsundays, he'd been seen tagged for a decade .
+The Australian Food Safety Authority has warned Australia's beaches may be revitalised
+this year because healthy seabirds and seals have been on the move. More than 50,000 
+seabirds, sea mammals and seah orses have been swept into the sea by the Holden 
+CS118 and Adelaide Airport CS300 from 2013 . A major white-bat and umidauda 
+migration across Australia is under way in Australia for the first time, with numbers 
+reaching an estimated 50,000.
+The number of stranded whales has increased by more than 50 per cent in the past year, 
+with the number of stranded whales on the West Australian coast increasing by more 
+than 50 per cent in the past year . The number of whales stranded on the West Australian 
+coast has increased by more than 50 per cent in the past year, with the number of 
+stranded whales on the West Australian coast increasing by more than 50 per cent in the 
+past year.
+Sampling, t=0.9
+WebT ext
+WebT ext
+Beam Search, b=16
+Pure Sampling
+T op-k, k=640
+T op-k, k=40, t=0.7
+The whale's fate was confirmed late last week when the animal was found by fishermen 
+off the coast of Bundaberg. Experts believe the whale was struck by a fishing vessel off 
+the coast of Bundaberg , and died after being sucked into the ocean . The whale's fate 
+was confirmed late last week when the animal was found by fishermen off the coast of 
+Bundaberg.
+Nucleus, p=0.95
+Figure 3: Example generations continuing an initial sentence. Maximization and top- k truncation
+methods lead to copious repetition (highlighted in blue), while sampling with and without tempera-
+ture tends to lead to incoherence (highlighted in red). Nucleus Sampling largely avoids both issues.
+likelihood. Since ﬁnding the optimum argmax sequence from recurrent neural language models or
+Transformers is not tractable (Chen et al., 2018), common practice is to use beam search (Li et al.,
+2016b; Shen et al., 2017; Wiseman et al., 2017). However, several recent studies on open-ended
+generation have reported that maximization-based decoding does not lead to high quality text (Fan
+et al., 2018; Holtzman et al., 2018).
+3.1 N UCLEUS SAMPLING
+We propose a new stochastic decoding method: Nucleus Sampling. The key idea is to use the shape
+of the probability distribution to determin
+
+Published as a conference paper at ICLR 2020
+probability 0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1
+I do n’t know .
+Figure 4: The probability of a repeated phrase increases with each repetition, creating a positive
+feedback loop. We found this effect to hold for the vast majority of phrases we tested, regardless of
+phrase length or if the phrases were sampled randomly rather than taken from human text.
+Figure 5: The probability mass assigned to partial human sentences. Flat distributions lead to many
+moderately probable tokens, while peaked distributions concentrate most probability mass into just
+a few tokens. The presence of ﬂat distributions makes the use of a small k in top- k sampling
+problematic, while the presence of peaked distributions makes large k’s problematic.
+Let p′ = ∑
+x∈V (p) P (x|x1:i−1). The original distribution is re-scaled to a new distribution, from
+which the next word is sampled:
+P′(x|x1:i−1) =
+{
+P (x|x1:i−1)/p′ if x∈ V (p)
+0 otherwise. (3)
+In practice this means selecting the highest probability tokens whose cumulative probability mass
+exceeds the pre-chosen threshold p. The size of the sampling set will adjust dynamically based on
+the shape of the probability distribution at each time step. For high values ofp, this is a small subset
+of vocabulary that takes up vast majority of the probability mass — the nucleus.
+3.2 T OP-k SAMPLING
+Top-k sampling has recently become a popular alternative sampling procedure (Fan et al., 2018;
+Holtzman et al., 2018; Radford et al., 2019). Nucleus Sampling and top- k both sample from trun-
+cated Neural LM distributions, differing only in the strategy of where to truncate. Choosing where
+to truncate can be interpreted as determining the generative model’s trustworthy prediction zone.
+At each time step, the top k possible next tokens are sampled from according to their relative prob-
+abilities. Formally, given a distribution P (x|x1:i−1), we deﬁne its top- k vocabulary V (k)⊂ V as
+the set of size k which maximizes ∑
+x∈V (k) P (x|x1:i−1). Let p′ = ∑
+x∈V (k) P (x|x1:i−1). The
+distribution is then re-scaled as in equation 3, and sampling is performed based on that distribution.
+Note that the scaling factor p′ can vary wildly at each time-step, in contrast to Nucleus Sampling.
+Difﬁculty in choosing a suitable value of k While top-k sampling leads to considerably higher
+quality text than either beam search or sampling from the full distribution, the use of a constant k is
+5

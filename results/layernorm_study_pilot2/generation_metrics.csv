@@ -1,0 +1,5 @@
+unit_id,category,prompt,distinct_1,distinct_2,embedding_dispersion,pairwise_bigram_jaccard,mean_repetition_rate,mean_response_words,sentence_adherence,model
+curated-0,Creativity,Tell me a story in five sentences about a girl and her dog.,0.6722689075630253,0.9658119658119658,0.8539335131645203,0.017699115044247787,0.0,59.5,0.0,gpt2
+curated-1,Creativity,Tell me a story in five sentences about a boy and his dog.,0.512396694214876,0.8067226890756303,0.918258786201477,0.0,0.11732522796352585,60.5,0.5,gpt2
+curated-0,Creativity,Tell me a story in five sentences about a girl and her dog.,0.6581196581196581,0.9739130434782609,0.6863141059875488,0.0,0.0,58.5,0.5,gpt2_lnfree
+curated-1,Creativity,Tell me a story in five sentences about a boy and his dog.,0.6240601503759399,0.9389312977099237,1.009171485900879,0.008130081300813009,0.00833333333333336,66.5,0.0,gpt2_lnfree

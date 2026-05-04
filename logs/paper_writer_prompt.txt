@@ -1,0 +1,740 @@
+You are an academic paper writer. Generate a complete NEURIPS style paper
+based on the experiment results provided.
+
+════════════════════════════════════════════════════════════════════════════════
+                         IMPORTANT: BEFORE YOU START
+════════════════════════════════════════════════════════════════════════════════
+
+Before writing any content, you MUST complete these steps:
+
+1. READ THE SKILL: Review the paper-writer skill at .codex/skills/paper-writer/SKILL.md
+2. READ THE STYLE GUIDE: Study templates/paper_writing/lab_style_guide.md carefully
+3. REVIEW EXAMPLES: Browse paper_examples/ for formatting and language patterns:
+   - Look at sections/1.introduction.tex for language style
+   - Look at tables/*.tex for table formatting
+   - Look at commands/*.tex for macro usage
+4. VERIFY COMMAND TEMPLATES: Command templates (math.tex, general.tex, macros.tex) are pre-copied to paper_draft/commands/
+
+CRITICAL: Reference example papers for FORMATTING and LANGUAGE STYLE only.
+Do NOT copy content, phrasing, or narrative structure from the example papers.
+The examples are in a different research domain - focus only on presentation style.
+
+════════════════════════════════════════════════════════════════════════════════
+                            EXPERIMENT REPORT
+════════════════════════════════════════════════════════════════════════════════
+
+# REPORT: LayerNorm and Concept Association in Creative Tasks
+
+## 1. Executive Summary
+This study tested whether LayerNorm contributes to generative collapse toward stereotyped, human-intuitive outputs by comparing vanilla `gpt2` against the released LN-free checkpoint `schaeff/gpt2-small_LNFree300`. The key result is mixed: removing LayerNorm substantially expanded hidden-state geometry on an association benchmark, but it did not produce a reliable gain in lexical diversity on creative generation prompts.
+
+In concrete terms, LN removal raised semantic spread across repeated creative generations, reduced representational anisotropy, and nearly doubled effective rank on Only Connect Wall clue embeddings. At the same time, it slightly reduced `distinct_1` and `distinct_2`, slightly increased a lexical-overlap proxy, and did not significantly improve association separability. The practical implication is that LayerNorm appears to compress representation geometry, but architectural removal alone is not enough to turn that broader geometry into clearly more novel creative surface outputs in this GPT-2-family setting.
+
+## 2. Research Question &amp; Motivation
+### Hypothesis
+Layer normalization may contribute to collapse toward high-probability outputs by regularizing the residual stream into a geometry that favors safe, stereotyped concept associations over more incongruent or creative ones.
+
+### Why this matters
+The user’s framing points to two forms of collapse: sampling/decoding collapse and architectural collapse. Decoding and RLHF are already known contributors to bland or intuitive outputs, but if LayerNorm itself also narrows the usable representation geometry, then interventions aimed at creativity need to go beyond decoding tricks.
+
+### Literature gap
+The local literature review identified a direct gap: LayerNorm papers explain optimization and attention geometry, while creativity papers measure diversity or semantic association, but none of the gathered work directly tests whether LayerNorm changes creative-output variability or association structure. This project fills that gap with a matched local-model comparison.
+
+## 3. Experimental Setup
+### Models tested
+- Baseline: `gpt2`
+- Architectural variant: `schaeff/gpt2-small_LNFree300`
+
+### Datasets
+- NoveltyBench creativity subset: 20 prompts from `datasets/novelty_bench/curated.jsonl`
+- Only Connect Wall validation split: 62 walls from `datasets/ocw/dataset/validation.json`
+
+### Experimental protocol
+1. Generate 12 responses per creativity prompt from each model with fixed sampling.
+2. Measure lexical diversity, semantic spread, overlap, repetition, and sentence-count adherence.
+3. Encode OCW clue strings with each model’s final hidden layer and compute geometry/association metrics per wall.
+4. Run paired statistical tests across prompts or walls, then correct within each metric family using Benjamini-Hochberg FDR.
+
+### Generation settings
+- `temperature=0.9`
+- `top_p=0.95`
+- `max_new_tokens=80`
+- `seed=42`
+
+### Metrics
+Creative generation:
+- `distinct_1`, `distinct_2`
+- Mean pairwise sentence-embedding cosine distance (`embedding_dispersion`)
+- Mean pairwise bigram Jaccard overlap (`pairwise_bigram_jaccard`; higher means more overlap, so worse diversity)
+- Mean repetition rate
+- Sentence-count adherence when the prompt explicitly requested a sentence count
+
+Association geometry:
+- `association_auc`: AUROC for same-group vs different-group clue pairs using cosine similarity
+- `similarity_gap`: within-group minus between-group cosine similarity
+- `anisotropy`: mean pairwise cosine among clue embeddings
+- `effective_rank`: participation-ratio style covariance rank
+
+### Tools and environment
+- Python `3.12.8`
+- `torch 2.11.0+cu130`
+- `transformers 5.7.0`
+- `sentence-transformers 5.4.1`
+- `scikit-learn 1.8.0`
+- `scipy 1.17.1`
+- `pandas 3.0.2`
+- `matplotlib 3.10.9`
+- `seaborn 0.13.2`
+
+### Hardware
+The workspace exposed four NVIDIA RTX A6000 GPUs (`49 GB` each), but Torch could not use CUDA because the installed build expected a newer driver than the container provided. As a result, the study executed on CPU. Total experiment runtime was `262.65s`.
+
+### Reproducibility
+- Environment file: `pyproject.toml`
+- Main script: `src/run_layernorm_study.py`
+- Metadata and run arguments: `results/layernorm_study/metadata.json`
+- Raw generations: `results/layernorm_study/raw/`
+
+## 4. Results
+### 4.1 Creative generation metrics
+
+| Metric | GPT-2 | LN-free GPT-2 | Delta (LN-free - GPT-2) | FDR p-value | Interpretation |
+|---|---:|---:|---:|---:|---|
+| `distinct_1` | 0.463 | 0.451 | -0.0117 | 0.258 | Slight lexical diversity drop |
+| `distinct_2` | 0.899 | 0.884 | -0.0151 | 0.115 | Slight lexical diversity drop |
+| `embedding_dispersion` | 0.803 | 0.831 | +0.0285 | 0.024 | Significant semantic spread increase |
+| `pairwise_bigram_jaccard` | 0.00627 | 0.00806 | +0.00179 | 0.105 | More lexical overlap, not significant after FDR |
+| `mean_repetition_rate` | 0.0277 | 0.0256 | -0.00206 | 0.766 | No meaningful change |
+| `sentence_adherence` | 0.222 | 0.167 | -0.0556 | 0.600 | No reliable gain in coarse utility proxy |
+
+Additional directional checks:
+- LN-free GPT-2 had higher semantic spread on `15/20` prompts.
+- LN-free GPT-2 beat vanilla on `distinct_1` for only `8/20` prompts and on `distinct_2` for `6/20`.
+
+### 4.2 OCW association-geometry metrics
+
+| Metric | GPT-2 | LN-free GPT-2 | Delta (LN-free - GPT-2) | FDR p-value | Interpretation |
+|---|---:|---:|---:|---:|---|
+| `association_auc` | 0.5271 | 0.5294 | +0.00233 | 0.706 | No significant separability gain |
+| `similarity_gap` | 0.000581 | 0.001046 | +0.000465 | 0.299 | Small, non-significant improvement |
+| `anisotropy` | 0.9915 | 0.9642 | -0.0273 | 8.5e-26 | Strong reduction in collapse/homogenization |
+| `effective_rank` | 1.352 | 2.560 | +1.208 | 1.5e-11 | Strong increase in representational dimensionality |
+
+Directional checks:
+- LN-free GPT-2 had lower anisotropy on `62/62` walls.
+- LN-free GPT-2 had higher effective rank on `62/62` walls.
+- AUC improved on `33/62` walls, so the strong geometry change did not consistently translate into much better group separability.
+
+### 4.3 Figures and artifacts
+- Generation metric plot: `figures/layernorm_study/generation_metrics.png`
+- OCW geometry plot: `figures/layernorm_study/ocw_metrics.png`
+- Metric CSVs:
+  - `results/layernorm_study/generation_metrics.csv`
+  - `results/layernorm_study/ocw_metrics.csv`
+- Statistical tests:
+  - `results/layernorm_study/generation_stats.csv`
+  - `results/layernorm_study/ocw_stats.csv`
+
+## 5. Analysis &amp; Discussion
+### What the results show
+The strongest evidence is internal, not surface-level. Removing LayerNorm consistently produced less anisotropic and higher-rank clue embeddings on OCW, which supports the user’s idea that LayerNorm affects residual-space geometry in a way that can compress representational variation. This result aligns with the literature suggesting that normalization changes attention/residual geometry rather than merely stabilizing training.
+
+The generative results are more ambiguous. LN removal increased semantic spread across repeated responses, which is consistent with the hypothesis that the model accesses a broader region of concept space. However, the same model did not become more lexically distinct by `distinct_n`, and it showed slightly more pairwise bigram overlap. On these prompts, broader embedding dispersion did not cleanly become broader lexical creativity.
+
+### Interpretation relative to the hypothesis
+The hypothesis was partially supported.
+- Supported: LayerNorm removal clearly changed geometry in the direction of less collapse.
+- Partially supported: semantic response spread increased under fixed decoding.
+- Not supported strongly enough: this did not become a robust gain in lexical novelty or OCW grouping performance.
+
+The most defensible interpretation is that LayerNorm contributes to a compressed representation geometry, but the path from geometry to visibly creative output is mediated by other factors: pretrained distribution shape, small-model capacity, and prompt-following weakness in GPT-2.
+
+### Alternative explanations
+- The LN-free checkpoint may simply be noisier after post-training LN removal, which can raise embedding spread without improving useful creativity.
+- GPT-2 is not instruction-tuned, so NoveltyBench prompts are a weak surface test of creativity quality.
+- The clue-embedding OCW protocol measures association geometry indirectly from a causal LM rather than from a model trained specifically for semantic grouping.
+
+### Qualitative notes
+The raw outputs support the quantitative story. Both models produced weak prompt following, but the LN-free model more often wandered into semantically broader or more abrupt topic shifts. That matches the higher embedding-dispersion result, but it does not obviously look like better controlled creativity.
+
+## 6. Limitations
+- Model family limitation: this study used GPT-2 small and one LN-free derivative, not modern RLHF-tuned LLMs.
+- Quality proxy limitation: sentence-count adherence is coarse, and only 3 prompts exposed that metric.
+- Benchmark mismatch: NoveltyBench was designed for stronger instruction-following models, so absolute scores here should not be compared to frontier-model leaderboard results.
+- Geometry task limitation: OCW embeddings were extracted from clue strings directly, not from a supervised grouping head or a task-trained association model.
+- Hardware limitation: GPU acceleration was unavailable because the Torch CUDA build and installed driver were mismatched.
+
+These limitations mean the study should be read as a mechanistic GPT-2-family probe, not a final statement about LayerNorm in modern aligned LLMs.
+
+## 7. Conclusions &amp; Next Steps
+Removing LayerNorm from GPT-2 substantially reduced representational anisotropy and increased effective rank, which supports the idea that LayerNorm compresses concept geometry. But that broader geometry did not straightforwardly produce more lexically diverse or more accurate creative associations under fixed decoding. In this experiment, LayerNorm looked more like a geometry-shaping factor than a single direct cause of creative-output collapse.
+
+Recommended follow-up experiments:
+1. Repeat the same protocol on a stronger open-weight model family with matched normalized and de-normalized variants.
+2. Add a quality-controlled evaluation layer, such as human or strong-LLM judging, to separate useful novelty from incoherence.
+3. Test decoding interactions directly: compare LN and LN-free models under greedy, temperature, and nucleus sampling to estimate architecture-by-decoder interactions.
+4. Replace direct clue-string embeddings with task-conditioned OCW prompts or a learned association probe to test whether geometric expansion becomes more useful under explicit reasoning.
+
+## References
+1. Xiong et al. (2020). *On Layer Normalization in the Transformer Architecture.*
+2. Brody, Alon, Yahav (2023). *On the Expressivity Role of LayerNorm in Transformers&#39; Attention.*
+3. Zhu et al. (2025). *Transformers without Normalization.*
+4. Holtzman et al. (2019). *The Curious Case of Neural Text Degeneration.*
+5. Zhang et al. (2025). *NoveltyBench: Evaluating Language Models for Humanlike Diversity.*
+6. Chen and Ding (2023). *Probing the Creativity of Large Language Models: Can Models Produce Divergent Semantic Association?*
+7. Naeini et al. (2023). *Only Connect Wall Dataset.*
+
+
+════════════════════════════════════════════════════════════════════════════════
+                            RESEARCH PLAN
+════════════════════════════════════════════════════════════════════════════════
+
+# Research Plan: LayerNorm and Concept Association in Creative Tasks
+
+## Motivation &amp; Novelty Assessment
+
+### Why This Research Matters
+Creative generation tasks expose a persistent gap between the number of plausible concept combinations a language model could in principle represent and the smaller set of high-probability outputs it actually emits. If part of that gap is architectural rather than purely a consequence of decoding or alignment, then understanding LayerNorm&#39;s role could inform both model design and interventions aimed at improving novelty without destroying coherence.
+
+### Gap in Existing Work
+The collected literature separates into two mostly disconnected lines: LayerNorm papers explain optimization and attention geometry, while creativity/diversity papers measure output collapse, semantic association, or distractor sensitivity. None of the gathered work directly tests whether LayerNorm changes representational geometry in a way that measurably alters creative output diversity or concept-association structure.
+
+### Our Novel Contribution
+This project links these literatures with a direct architectural comparison between a vanilla GPT-2 model and a matched LN-free GPT-2 variant. The contribution is not a new benchmark, but a cross-level analysis: we test whether removing LayerNorm changes both internal geometry on an association benchmark and external diversity on creative prompts.
+
+### Experiment Justification
+- Experiment 1: NoveltyBench creativity generations. Needed to test whether LN status changes the diversity and stereotypy of open-ended creative outputs under fixed decoding.
+- Experiment 2: OCW association geometry. Needed to test whether LN status changes semantic grouping structure in hidden representations, which addresses the user&#39;s geometry/association hypothesis directly.
+- Experiment 3: Robustness across decoding seeds and prompt instances. Needed to distinguish stable architecture effects from one-off sampling noise.
+
+## Research Question
+Does LayerNorm in GPT-2-class transformers contribute to representational and generative collapse toward more stereotyped outputs, reducing diversity and weakening non-obvious concept associations in creative tasks?
+
+## Background and Motivation
+Prior work suggests three relevant facts. First, LayerNorm changes transformer behavior beyond optimization, affecting residual-space projection and token selectability. Second, open-ended generation often collapses toward high-probability, low-diversity continuations. Third, creativity and association benchmarks show that LLMs can be competent on average while still under-expressing exceptional or unusual associations. This project tests whether those observations connect through LayerNorm.
+
+## Hypothesis Decomposition
+- H1: Under matched sampling settings, the LN-free GPT-2 variant will produce more diverse responses than vanilla GPT-2 on creative prompts.
+- H2: The LN-free GPT-2 variant will show less collapsed hidden-state geometry, operationalized as lower anisotropy and higher effective rank on association stimuli.
+- H3: If LayerNorm contributes to concept-association collapse, same-group vs different-group clue separability on OCW will change measurably between the two models.
+- Alternative explanation A: Any diversity increase is just model degradation or noisier decoding, not more useful creativity.
+- Alternative explanation B: Any geometry change does not translate into output behavior.
+- Alternative explanation C: Effects are specific to GPT-2 and do not generalize to modern aligned LLMs.
+
+## Proposed Methodology
+
+### Approach
+Use a controlled, local-model comparison between `gpt2` and `schaeff/gpt2-small_LNFree300`, a released LN-free GPT-2 variant produced by post-training LN removal. Hold decoding settings fixed, run repeated generations on creative prompts, and pair output metrics with internal geometry metrics on the Only Connect Wall dataset. This design is feasible in one session, directly tied to the hypothesis, and avoids confounding architecture effects with provider-level RLHF differences.
+
+### Experimental Steps
+1. Verify and document environment, GPU availability, random seeds, and package versions.
+2. Load the NoveltyBench creativity subset and OCW validation/test partitions.
+3. Run repeated generations from both models on the 20 creativity prompts with fixed sampling parameters.
+4. Compute creative-output metrics: distinct-1/2, self-BLEU proxy via pairwise n-gram overlap, sentence-embedding dispersion, repetition rate, and sentence-count adherence.
+5. Encode OCW clues in a neutral carrier prompt with both models and extract final-layer hidden representations.
+6. Compute geometry metrics on OCW clues: same-group vs different-group cosine-separability AUC, within-minus-between similarity gap, anisotropy, and effective rank.
+7. Aggregate per-prompt and per-wall statistics, run paired statistical tests, estimate effect sizes, and generate figures.
+
+### Baselines
+- Primary baseline: vanilla `gpt2`
+- Architectural comparison model: `schaeff/gpt2-small_LNFree300`
+- Decoding control: fixed temperature/top-p across both models
+- Statistical control: per-prompt and per-wall paired comparisons
+
+### Evaluation Metrics
+- Creative diversity:
+  - `distinct_1`, `distinct_2`: lexical diversity across generations
+  - Mean pairwise embedding distance: semantic spread across generations
+  - Mean pairwise n-gram overlap: stereotypy/self-similarity proxy
+  - Repetition rate: degeneracy proxy
+  - Sentence-count adherence: coarse prompt-following/utility proxy
+- Association geometry:
+  - Same-vs-different group AUROC from cosine similarity
+  - Mean within-group minus between-group similarity gap
+  - Embedding anisotropy: mean pairwise cosine among clue embeddings
+  - Effective rank / participation ratio of clue-embedding covariance
+
+### Statistical Analysis Plan
+- Unit of analysis for generation metrics: prompt.
+- Unit of analysis for geometry metrics: wall.
+- Null hypotheses:
+  - H0-1: No difference in prompt-level diversity metrics between vanilla and LN-free models.
+  - H0-2: No difference in wall-level geometry metrics between vanilla and LN-free models.
+- Tests:
+  - Shapiro-Wilk on paired differences to assess normality.
+  - Paired t-test if normality is not rejected; otherwise Wilcoxon signed-rank.
+  - Two-sided alpha = 0.05.
+  - Benjamini-Hochberg correction within each metric family.
+- Effect sizes:
+  - Cohen&#39;s d for paired differences when using t-tests.
+  - Rank-biserial correlation for Wilcoxon tests.
+- Uncertainty:
+  - 95% bootstrap confidence intervals over prompts/walls for headline metrics.
+
+## Expected Outcomes
+Support for the hypothesis would look like: LN-free GPT-2 shows higher diversity and semantic spread on creativity prompts, together with less anisotropic or more separable OCW clue geometry. Refutation would look like negligible differences, or diversity gains that coincide with obvious quality collapse and weaker association structure.
+
+## Timeline and Milestones
+1. Planning and environment verification: 20-30 min
+2. Dependency installation and pilot runs: 20-30 min
+3. Script implementation: 45-75 min
+4. Experiment execution: 45-90 min
+5. Analysis, figures, and report: 45-60 min
+6. Validation and reruns of key checks: 15-25 min
+
+## Potential Challenges
+- GPT-2 is not instruction-tuned, so absolute creativity quality may be low.
+- The LN-free model may be noisier because post-training LN removal can degrade perplexity.
+- OCW clue embeddings from a causal LM are an indirect association measure.
+- Sentence-embedding metrics can overestimate diversity if outputs become incoherent.
+
+Mitigations:
+- Emphasize paired, same-family comparison rather than absolute model quality.
+- Include coarse adherence/repetition metrics to separate diversity from collapse.
+- Report limitations explicitly and avoid overgeneralizing beyond GPT-2-class models.
+
+## Success Criteria
+- Both models load and run reproducibly on local hardware.
+- At least one full creative-output comparison and one association-geometry comparison complete with saved raw results.
+- Statistical tests and figures are generated from actual runs.
+- REPORT.md states a defensible answer to the hypothesis with explicit limitations.
+
+
+════════════════════════════════════════════════════════════════════════════════
+                          LITERATURE REVIEW
+════════════════════════════════════════════════════════════════════════════════
+
+# Literature Review: LayerNorm and Concept Association in Creative Tasks
+
+## Review Scope
+
+### Research Question
+Does LayerNorm contribute to generative collapse toward safe, high-probability outputs, reducing creative or incongruent concept association in language-model creative tasks?
+
+### Inclusion Criteria
+- Transformer or LLM papers that analyze LayerNorm function, placement, or removal
+- Papers on degeneration, diversity collapse, or open-ended generation quality
+- Papers that operationalize creativity through divergent thinking, semantic association, or distractor-heavy association tasks
+- Resources with runnable code or downloadable benchmarks when available
+
+### Exclusion Criteria
+- Purely vision-only normalization papers without transferable transformer insight
+- General creativity commentary without measurable benchmarks
+- Papers with no clear relevance to either LayerNorm or creative/diversity evaluation
+
+### Time Frame
+- Foundations: 2019-2020
+- Primary emphasis: 2022-2025
+
+### Sources
+- arXiv
+- GitHub repositories linked from papers/project pages
+- manual fallback search after the local paper-finder backend stalled
+
+## Search Log
+
+| Date | Query | Source | Notes |
+|------|-------|--------|-------|
+| 2026-05-04 | `layer normalization concept association creativity generative models` | local paper-finder helper | backend hung; switched to manual search |
+| 2026-05-04 | layer norm / transformer / creativity / degeneration queries | arXiv web search | used for paper acquisition |
+| 2026-05-04 | benchmark and dataset searches | GitHub + project pages + HF | used for code and data acquisition |
+
+## Screening Results
+
+| Paper | Decision | Reason |
+|------|----------|--------|
+| Xiong et al. 2020 | Include | foundational LN placement and stability analysis |
+| Brody et al. 2023 | Include | direct claim that LN changes attention expressivity |
+| Zhu et al. 2025 | Include | strongest recent normalization-removal result |
+| Holtzman et al. 2019 | Include | canonical degeneration paper |
+| Zhang et al. 2025 (NoveltyBench) | Include | direct benchmark for response diversity collapse |
+| Chen and Ding 2023 | Include | direct creativity probe via DAT |
+| Stevenson et al. 2022 | Include | AUT-based human vs GPT comparison |
+| Haase et al. 2025 | Include | current multi-model creativity variability study |
+| Naeini et al. 2023 | Include | distractor-heavy association benchmark |
+
+## Key Papers
+
+### On Layer Normalization in the Transformer Architecture
+- **Authors**: Xiong et al.
+- **Year**: 2020
+- **Source**: arXiv / widely cited transformer optimization paper
+- **Key Contribution**: explains why LN placement changes gradient behavior; Pre-LN avoids unstable gradients seen in Post-LN.
+- **Methodology**: mean-field analysis plus transformer experiments comparing Pre-LN and Post-LN.
+- **Datasets Used**: multiple transformer application settings; the paper is more about optimization dynamics than creativity.
+- **Results**: Pre-LN removes the need for careful warm-up while preserving performance.
+- **Code Available**: not central for this project.
+- **Relevance to Our Research**: if LN affects gradient flow and residual scaling, it may also affect how sharply models concentrate probability mass during training.
+
+### On the Expressivity Role of LayerNorm in Transformers&#39; Attention
+- **Authors**: Brody, Alon, Yahav
+- **Year**: 2023
+- **Source**: Findings of ACL 2023
+- **Key Contribution**: argues LN changes what attention can represent, not just how it optimizes.
+- **Methodology**: geometric decomposition of LN into projection and scaling; theory plus majority and unselectable-key experiments.
+- **Datasets Used**: synthetic majority task, language-modeling-oriented experiments.
+- **Results**: projection helps queries attend uniformly when needed; scaling prevents “unselectable” keys.
+- **Code Available**: Yes, cloned in `code/layer_norm_expressivity_role/`.
+- **Relevance to Our Research**: highly relevant mechanistically. If LN shapes attention geometry toward regularized, comparable token representations, it is a plausible contributor to homogenized association structure.
+
+### Transformers without Normalization
+- **Authors**: Zhu et al.
+- **Year**: 2025
+- **Source**: arXiv
+- **Key Contribution**: shows DyT can replace normalization layers across transformer families.
+- **Methodology**: substitute LN/RMSNorm with `tanh(alpha x)` plus affine parameters, keeping most training settings fixed.
+- **Datasets Used**: ImageNet, LibriSpeech-style speech setup, diffusion models, and language settings.
+- **Results**: normalized transformers can often be matched or exceeded without explicit normalization.
+- **Code Available**: project page/code referenced in the paper.
+- **Relevance to Our Research**: strongest experimental justification for running LN-free or LN-reduced creative-task ablations.
+
+### The Curious Case of Neural Text Degeneration
+- **Authors**: Holtzman et al.
+- **Year**: 2019
+- **Source**: ICLR 2020
+- **Key Contribution**: high-probability decoding leads to bland repetition; nucleus sampling better matches human text diversity.
+- **Methodology**: compares beam search, top-k, pure sampling, and nucleus sampling against human text distributions.
+- **Datasets Used**: open-ended long-form generation with GPT-2 and human reference text.
+- **Results**: beam search is inappropriate for open-ended generation; truncating the unreliable tail preserves quality and diversity.
+- **Code Available**: not needed here.
+- **Relevance to Our Research**: this is the clearest prior evidence for “collapse toward human-intuitive/high-probability outputs,” though it addresses decoding rather than architecture.
+
+### NoveltyBench: Evaluating Language Models for Humanlike Diversity
+- **Authors**: Zhang et al.
+- **Year**: 2025
+- **Source**: COLM 2025
+- **Key Contribution**: formal benchmark for multiple distinct, high-quality generations.
+- **Methodology**: 1,100 prompts, equivalence-class partitioning, `distinct_k` and `utility_k` metrics.
+- **Datasets Used**: NB-Curated and NB-WildChat.
+- **Results**: frontier models are much less diverse than humans; larger models in a family are often less novel than smaller ones.
+- **Code Available**: Yes, cloned in `code/novelty-bench/`.
+- **Relevance to Our Research**: primary benchmark for testing the hypothesis.
+
+### Probing the Creativity of Large Language Models: Can Models Produce Divergent Semantic Association?
+- **Authors**: Chen, Ding
+- **Year**: 2023
+- **Source**: arXiv
+- **Key Contribution**: evaluates LLMs with DAT, a semantic-distance creativity measure.
+- **Methodology**: compare multiple LLMs and decoding strategies on generation of unrelated nouns; compute cosine-distance-based DAT score.
+- **Datasets Used**: DAT framework, with human comparisons.
+- **Results**: GPT-4 exceeds most humans on greedy DAT score; stochastic decoding can raise creativity scores for smaller models but reduces stability.
+- **Code Available**: Yes, linked in paper; related task code cloned via DAT repo.
+- **Relevance to Our Research**: supplies a direct concept-association evaluation axis.
+
+### Putting GPT-3&#39;s Creativity to the (Alternative Uses) Test
+- **Authors**: Stevenson et al.
+- **Year**: 2022
+- **Source**: arXiv / ICCC
+- **Key Contribution**: compares GPT-3 against humans on AUT.
+- **Methodology**: evaluate originality, usefulness, surprise, flexibility, and semantic-distance proxies on alternative object uses.
+- **Datasets Used**: Guilford’s Alternative Uses Test with human comparison data.
+- **Results**: humans still outperform GPT-3 overall on creative output quality.
+- **Code Available**: not central here.
+- **Relevance to Our Research**: AUT remains a useful complementary benchmark to DAT and NoveltyBench.
+
+### Has the Creativity of Large-Language Models peaked?
+- **Authors**: Haase, Hanel, Pokutta
+- **Year**: 2025
+- **Source**: arXiv
+- **Key Contribution**: evaluates 14 LLMs on DAT and AUT with inter- and intra-model variability.
+- **Methodology**: repeated prompting across models and prompt formulations.
+- **Datasets Used**: DAT and AUT.
+- **Results**: average AUT performance can exceed human average, but truly exceptional creativity remains rare; output variability is large.
+- **Code Available**: not inspected here.
+- **Relevance to Our Research**: suggests repeated sampling is necessary and single-run evaluation will be noisy.
+
+### Only Connect Wall Dataset
+- **Authors**: Naeini et al.
+- **Year**: 2023
+- **Source**: NeurIPS Datasets and Benchmarks
+- **Key Contribution**: creative association benchmark with built-in distractors and fixation pressure.
+- **Methodology**: 618 wall puzzles; grouping task plus connection-naming task; compares embeddings, PLMs, and LLMs.
+- **Datasets Used**: OCW, OCW-Randomized, OCW-WordNet.
+- **Results**: even strong LLMs underperform expert humans; more in-context examples do not fix the core difficulty.
+- **Code Available**: Yes, cloned in `code/ocw/`.
+- **Relevance to Our Research**: excellent concept-association task that may expose whether LN contributes to brittle, stereotyped grouping behavior.
+
+## Common Methodologies
+
+- **Normalization analysis**: mean-field theory, geometric decomposition, and LN-removal substitutions.
+- **Creativity measurement**: DAT semantic distance, AUT ratings/semantic proxies, distractor-heavy puzzle solving, and diversity-over-multiple-generations metrics.
+- **Diversity evaluation**: repetition statistics, equivalence clustering, `distinct_k`, `utility_k`, and human preference judgments.
+
+## Standard Baselines
+
+- **Architectural baselines**: Pre-LN transformer, Post-LN transformer, RMSNorm variants, LN-free / DyT variants.
+- **Decoding baselines**: greedy, top-k, temperature sampling, nucleus sampling.
+- **Creativity-task baselines**: human responses, GPT-family models, and embedding-based association methods.
+
+## Evaluation Metrics
+
+- **Diversity**: `distinct_k`, `utility_k`, self-BLEU-style overlap, repetition rate.
+- **Semantic creativity**: DAT score based on pairwise cosine distance among generated words.
+- **Divergent thinking**: AUT ratings for originality, usefulness, surprise, flexibility, plus semantic distance.
+- **Association puzzles**: exact grouping accuracy, AMI/ARI/FMS/Wasserstein for grouping, and exact match/ROUGE/BERTScore for named connections.
+
+## Datasets in the Literature
+
+- **NoveltyBench**: open-ended generation diversity benchmark; best direct fit for the hypothesis.
+- **DAT**: prompt-based semantic-association measure; operationalizes remote association.
+- **AUT**: classic divergent-thinking benchmark; useful but requires careful scoring.
+- **OCW**: red-herring-rich concept grouping benchmark; useful for fixation-style errors.
+
+## Gaps and Opportunities
+
+- **Direct gap**: none of the collected papers directly test whether LayerNorm itself causes lower creativity or more stereotyped concept association.
+- **Mechanistic gap**: LN papers explain expressivity and stability, but do not evaluate output diversity on creative tasks.
+- **Benchmark gap**: creativity papers compare models and decoding strategies, but rarely architecture-level normalization ablations.
+- **Experimental opportunity**: evaluate matched models with LN, RMSNorm, DyT, and LN-removed variants on NoveltyBench, DAT, and OCW.
+
+## Recommendations for Our Experiment
+
+- **Recommended datasets**: NoveltyBench for open-ended diversity, OCW for associative problem solving, DAT scoring via the cloned task code, and AUT if a curated prompt set is added later.
+- **Recommended baselines**: standard LN model, LN-free or DyT replacement, and a decoding control condition using greedy vs nucleus sampling.
+- **Recommended metrics**: `distinct_k`, `utility_k`, DAT score, OCW grouping metrics, repetition statistics, and intra-prompt variance across repeated samples.
+- **Methodological considerations**:
+  - Hold decoding constant when testing architectural effects, otherwise LN effects will be confounded with sampling effects.
+  - Evaluate repeated generations per prompt; single samples will hide diversity differences.
+  - Compare both quality and novelty, because higher novelty alone can drift into nonsense.
+  - Include an inference-only LN removal condition when feasible, because `code/removing-layer-norm/` suggests that some LN effects may persist less strongly at inference than assumed.
+
+
+════════════════════════════════════════════════════════════════════════════════
+                          PAPER REQUIREMENTS
+════════════════════════════════════════════════════════════════════════════════
+
+Generate a complete academic paper with the following structure:
+
+1. TITLE
+   - Clear, specific, informative
+   - Should convey main finding or contribution
+
+2. AUTHOR
+   - Use this exact author line in the \author{} block: Xiaoyan Bai and NeuriCo
+
+3. ABSTRACT (150-250 words)
+   - Problem statement
+   - Approach
+   - Key results
+   - Significance
+
+4. INTRODUCTION
+   - Research problem and motivation
+   - Gap in existing work
+   - Our contribution (be specific)
+   - Paper organization
+
+5. RELATED WORK
+   - Organized by theme/approach
+   - Position our work relative to prior work
+   - Cite papers from literature review
+
+6. METHODOLOGY
+   - Clear description of approach
+   - Experimental setup
+   - Datasets used
+   - Evaluation metrics
+   - Baselines
+
+7. RESULTS
+   - Present results with tables and figures
+   - Statistical analysis
+   - Comparison to baselines
+   - Ablation studies (if applicable)
+
+8. DISCUSSION
+   - Interpretation of results
+   - Limitations
+   - Broader implications
+
+9. CONCLUSION
+   - Summary of contributions
+   - Key findings
+   - Future work
+
+10. REFERENCES
+   - BibTeX format
+   - All cited papers
+
+════════════════════════════════════════════════════════════════════════════════
+                          OUTPUT FORMAT
+════════════════════════════════════════════════════════════════════════════════
+
+Create a MODULAR LaTeX project with the following directory structure:
+
+paper_draft/
+├── main.tex              # Main file that imports all sections
+├── references.bib        # BibTeX references
+├── sections/
+│   ├── abstract.tex      # Abstract content
+│   ├── introduction.tex  # Introduction section
+│   ├── related_work.tex  # Related work section
+│   ├── methodology.tex   # Methodology section
+│   ├── results.tex       # Results section
+│   ├── discussion.tex    # Discussion section
+│   └── conclusion.tex    # Conclusion section
+├── figures/              # Directory for any generated figures
+├── tables/               # Directory for complex standalone tables
+└── appendix/             # Directory for appendix sections (if needed)
+
+INSTRUCTIONS:
+1. First, create the directory structure above (mkdir -p paper_draft/sections paper_draft/figures paper_draft/tables paper_draft/appendix)
+2. Write main.tex using the EXACT preamble for NEURIPS:
+
+   \documentclass{article}
+   \usepackage[final]{neurips_2025}  % NEURIPS style (neurips_2025.sty is in paper_draft/)
+   \usepackage[hidelinks]{hyperref}  % REQUIRED: clickable links
+   \usepackage{booktabs}  % REQUIRED: professional tables
+   \usepackage{graphicx}
+   \usepackage{amsmath,amssymb}
+
+   % Import command files
+   \input{commands/math}
+   \input{commands/general}
+   \input{commands/macros}
+
+   % Use this bibliography style:
+   \bibliographystyle{plainnat}
+
+   \author{Xiaoyan Bai and NeuriCo}
+
+   - Use \input{sections/...} to include each section
+   - Use \bibliography{references} for references
+3. Write each section file with COMPLETE content (no placeholders)
+4. Each section file should include its \section{} command
+5. Write references.bib with all citations in BibTeX format
+6. After writing all files, compile the paper:
+   cd paper_draft && pdflatex -interaction=nonstopmode main.tex && bibtex main && pdflatex -interaction=nonstopmode main.tex && pdflatex -interaction=nonstopmode main.tex
+
+This modular structure allows humans to easily:
+- Edit individual sections without navigating a large file
+- Track changes per section
+- Reuse sections across different paper versions
+
+════════════════════════════════════════════════════════════════════════════════
+                          QUALITY REQUIREMENTS
+════════════════════════════════════════════════════════════════════════════════
+
+- Academic tone throughout
+- All claims must be supported by data from the experiment report
+- Proper citations using \cite{} commands
+- Clear figures and tables with proper captions
+- NO placeholder text - every section must have real content
+- The paper MUST compile without errors
+- If compilation fails, debug and fix the LaTeX errors
+
+════════════════════════════════════════════════════════════════════════════════
+                          LAB WRITING STYLE
+════════════════════════════════════════════════════════════════════════════════
+
+Follow these lab-specific conventions to match our paper style:
+
+1. LANGUAGE STYLE:
+   - Use active voice: "We propose", "We examine", "We focus on"
+   - Be direct and confident: "Our main question is...", "We hypothesize that..."
+   - State things clearly and simply - prefer plain language over jargon
+   - Use bold questions as paragraph organizers: {\bf what is X?}
+   - Include specific quantitative claims: "8.97% over baseline"
+   - Avoid fancy wording: "utilize" → "use", "facilitate" → "help"
+
+2. INTRODUCTION STRUCTURE:
+   - Engaging hook (get to the point quickly)
+   - Problem importance
+   - Gap identification
+   - Your approach with method figure reference
+   - Quantitative preview of results
+   - Contribution bullets (3-4 items, action verbs)
+
+3. CONTRIBUTION LISTS:
+   \begin{itemize}[leftmargin=*,itemsep=0pt,topsep=0pt]
+       \item We propose...
+       \item We conduct...
+       \item We complement...
+   \end{itemize}
+
+4. MODULAR COMMANDS STRUCTURE:
+   Command templates are pre-copied to paper_draft/commands/:
+   - math.tex: Math notation macros
+   - general.tex: Formatting macros
+   - macros.tex: Project-specific term definitions (customize this for your paper)
+
+   In main.tex, include:
+   \input{commands/math}
+   \input{commands/general}
+   \input{commands/macros}
+
+5. REFERENCE CONVENTIONS:
+   Use reference macros from math.tex:
+   - \figref{fig:name} for "figure 1" (lowercase, in-sentence)
+   - \Figref{fig:name} for "Figure 1" (capitalized, start of sentence)
+   - \secref{sec:name} for "section 2"
+
+6. TEXT FORMATTING:
+   - Use \para{Header text} for bold paragraph headers
+   - Define method/dataset names with \textsc and \xspace:
+     \newcommand{\methodname}{\textsc{MethodName}\xspace}
+
+7. TABLE FORMATTING:
+   - Use booktabs package (no vertical lines)
+   - Use \resizebox{\textwidth}{!}{...} for wide tables
+   - Use @{} to remove padding at table edges
+   - Use \cmidrule(lr){x-y} for sub-headers
+   - Use \textsc{} for dataset/method names in headers
+   - Bold best results with {\bf ...}
+
+8. FIGURE FORMATTING:
+   - Use 0.32\textwidth for 3-column subfigures
+   - Use 0.95\linewidth for full-width figures
+   - Use \input{figures/legend} for shared legends
+   - Write self-contained captions explaining key observations
+
+9. RESULTS PRESENTATION:
+   - Define \increase and \decrease for colored arrows (green up, red down)
+   - Bold best results in tables
+   - Report confidence intervals when available
+
+10. ALGORITHM STYLING:
+    - Use algpseudocode with [noend]
+    - Use \triangleright for comments
+
+11. HYPERLINKS (REQUIRED):
+    - Always use \usepackage[hidelinks]{hyperref} or with colored links
+    - All citations, section refs, figure refs, table refs must be clickable
+    - This is essential for reader navigation
+
+════════════════════════════════════════════════════════════════════════════════
+                          WORKFLOW: REVIEW AND REFLECT
+════════════════════════════════════════════════════════════════════════════════
+
+Before calling finish, you MUST complete these review steps:
+
+1. REVIEW RESOURCES (at the start):
+   - Read .codex/skills/paper-writer/SKILL.md for detailed guidance
+   - Study templates/paper_writing/lab_style_guide.md for style conventions
+   - Browse paper_examples/ for formatting and language patterns
+
+2. SELF-REFLECTION (before finishing):
+   After writing all sections, review your work against these criteria:
+
+   LANGUAGE CHECK:
+   - [ ] Is the writing clear and jargon-free?
+   - [ ] Are claims specific with quantitative support?
+   - [ ] Is active voice used throughout?
+
+   FORMATTING CHECK:
+   - [ ] Does main.tex include \input{commands/math}, \input{commands/general}, \input{commands/macros}?
+   - [ ] Is hyperref package included for clickable references?
+   - [ ] Do tables use booktabs (no vertical lines)?
+   - [ ] Are best results bolded in tables?
+   - [ ] Are figures/tables properly captioned?
+
+   STRUCTURE CHECK:
+   - [ ] Does introduction follow: hook → importance → gap → approach → preview → contributions?
+   - [ ] Are contribution bullets specific with action verbs?
+   - [ ] Does the paper compile without errors?
+
+3. FIX ISSUES:
+   - Address any issues found in the self-reflection
+   - Re-compile and verify the PDF looks correct
+
+Only after completing this review should you consider the paper finished.

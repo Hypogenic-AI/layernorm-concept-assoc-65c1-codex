@@ -1,0 +1,29 @@
+idea:
+  title: LayerNorm and concept association in creative tasks
+  domain: artificial_intelligence
+  hypothesis: 'Layer normalization may contribute to the collapse of generative models
+    onto high-probability, human-intuitive outputs, reducing the expression of creative
+    or incongruent concept associations in creative tasks.
+
+    '
+  background:
+    description: 'This connects to my thinking on concept incongruence: when combining
+      multiple concepts, many valid combinations exist in the latent space, but generation
+      collapses onto the mode, first because decoding samples from high-probability
+      regions, and then because RLHF further sharpens the distribution toward human-intuitive
+      outputs. Implicit constraints on creative tasks may be another symptom of the
+      same issue, where the model has more variation available than it actually expresses.
+      Therefore, how does layer norm contribute to this collapse? Is Layernorm affect
+      the concept of geometry and association that in the end causes less creative
+      output?
+
+      '
+  metadata:
+    author: Xiaoyan Bai
+    source: IdeaHub
+    source_url: https://hypogenic.ai/ideahub/idea/6r0rleJVuW6lNw7sdCff
+    idea_id: layernorm_and_concept_associat_20260504_205103_23890b09
+    created_at: '2026-05-04T20:51:03.149694'
+    status: submitted
+    github_repo_name: layernorm-concept-assoc-65c1-codex
+    github_repo_url: https://github.com/Hypogenic-AI/layernorm-concept-assoc-65c1-codex
